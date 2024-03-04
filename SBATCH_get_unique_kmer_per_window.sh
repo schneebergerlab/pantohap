@@ -13,6 +13,6 @@ chars=({A..J})
 #for i in 5 6 7 8; do
 for i in 5 ; do
 	srun --exclusive --ntasks 1 --cpus-per-task ${SLURM_CPUS_PER_TASK} --mem-per-cpu=${SLURM_MEM_PER_CPU} \
-	  get_unique_kmer_per_window.sh ${chars[${SLURM_ARRAY_TASK_ID}]} $i 10 5 # threads and mem also parsed
+	  ../../tool/get_unique_kmer_per_window.sh ${chars[${SLURM_ARRAY_TASK_ID}]} $i 10 5 # threads and mem also parsed
 done
 wait
