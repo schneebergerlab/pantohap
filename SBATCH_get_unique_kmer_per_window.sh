@@ -3,7 +3,7 @@
 #SBATCH --get-user-env
 #SBATCH --clusters=biohpc_gen
 #SBATCH --partition=biohpc_gen_normal
-#SBATCH --ntasks=4
+#SBATCH --ntasks=1
 #SBATCH --cpus-per-task=10
 #SBATCH --mem-per-cpu=5000mb
 #SBATCH --time=12:00:00
