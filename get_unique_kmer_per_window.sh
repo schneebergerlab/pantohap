@@ -12,7 +12,7 @@ meryl=/dss/dsslegfs01/pn29fi/pn29fi-dss-0003/software/bin_manish/anaconda3/envs/
 
 ls syn_fasta_${genome}_hap${hap}*fasta \
 | sed 's/\.fasta//g' \
-| xargs -n1 -P ${cpu} -I {} $meryl print k=51 equal-to 1 threads=1 memory=5 {} > {}.k51.unique.txt
+| xargs -n1 -P ${cpu} -I {} bash -c "$meryl print k=51 equal-to 1 threads=1 memory=5 {} > {}.k51.unique.txt " -- {}
 
 
 #
