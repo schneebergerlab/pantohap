@@ -6,8 +6,7 @@ mem=$4
 meryl=/dss/dsslegfs01/pn29fi/pn29fi-dss-0003/software/bin_manish/anaconda3/envs/mgpy3.8/bin/meryl
 
 ls syn_fasta_${genome}_hap${hap}*fasta \
-| xargs -n1 -P ${cpu} -I {}  \
-| $meryl k=51 count threads=1 memory=5 output {} {}
+| xargs -n1 -P ${cpu} -I {} $meryl k=51 count threads=1 memory=5 output {} {}
 
 #
 #$meryl k=21 count threads=40 memory=100 output ${s}_R1.meryl ${s}_ql-trimmed-pair1.fastq.gz &
