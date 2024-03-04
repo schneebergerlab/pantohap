@@ -1,3 +1,4 @@
+#!/bin/bash
 genome=$1
 hap=$2
 cpu=$3
