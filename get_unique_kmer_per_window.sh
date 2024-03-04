@@ -4,11 +4,11 @@ hap=$2
 cpu=$3
 mem=$4
 meryl=/dss/dsslegfs01/pn29fi/pn29fi-dss-0003/software/bin_manish/anaconda3/envs/mgpy3.8/bin/meryl
-#
-#ls syn_fasta_${genome}_hap${hap}*fasta \
-#| sed 's/\.fasta//g' \
-#| xargs -n1 -P ${cpu} -I {} $meryl k=51 count threads=1 memory=5 output {} {}.fasta
-#
+
+ls syn_fasta_${genome}_hap${hap}*fasta \
+| sed 's/\.fasta//g' \
+| xargs -n1 -P ${cpu} -I {} $meryl k=51 count threads=1 memory=5 output {} {}.fasta
+
 
 ls syn_fasta_${genome}_hap${hap}*fasta \
 | sed 's/\.fasta//g' \
