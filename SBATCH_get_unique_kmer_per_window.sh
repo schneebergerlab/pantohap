@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --array=0
+#SBATCH --array=0-9
 #SBATCH --get-user-env
 #SBATCH --clusters=biohpc_gen
 #SBATCH --partition=biohpc_gen_normal
