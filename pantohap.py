@@ -11,18 +11,12 @@
 get_node_query_sequence()
 
 # Get kmers for each of the fasta file created using get_node_query_sequence()
-get_unique_kmer_per_window.sh
+SBATCH_get_unique_kmer_per_window.sh
 
-def print_hi(name):
-    # Use a breakpoint in the code line below to debug your script.
-    print(f'Hi, {name}')  # Press Ctrl+F8 to toggle the breakpoint.
+# Merge Kmers from each collapsed node and then find marker kmers (that are present in that node only) for each node
+get_unique_kmers_per_node()
 
-
-# Press the green button in the gutter to run the script.
-if __name__ == '__main__':
-    print_hi('PyCharm')
-
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
+# Generate summary statistics
 
 
 # </editor-fold>

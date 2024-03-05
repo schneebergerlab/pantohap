@@ -41,8 +41,8 @@ def hapnodesfromvcffile(snpfin):
         # END
 
 
-    snpfin = f"/home/ra98jam/projects/pantohap/data/dm_all_sample_chr2.syri.nosr.snps.merged.vcf.txt"
-    snpfin = f"dm_all_sample_chr2.syri.nosr.snps.merged.vcf.txt"
+    snpfin = f"/dss/dsslegfs01/pn29fi/pn29fi-dss-0016/projects/potato_hap_example/data/dm_all_sample_chr2.syri.nosr.snps.merged.vcf.txt"
+    # snpfin = f"dm_all_sample_chr2.syri.nosr.snps.merged.vcf.txt"
     snpdf = pd.read_table(snpfin)
     snpdf.columns = 'chr position reference alternate'.split() + list(snpdf.columns[4:])
     snpdf['dm'] = '.'
@@ -84,32 +84,20 @@ def hapnodesfromvcffile(snpfin):
         hapsample = [','.join(h.index.values) for h in hapglist]
         hapblocks.append([start, end] + hapsample)
 
+    # hapoblist = deque()
+    # cnt = 0
+    # for i, h in enumerate(hapblocks):
+    #     for ss in h[2:]:
+    #         ss = sorted(ss.split(','))
+    #         hapoblist.append(hapobject(cnt, h[0], h[1] - 1, ss))
+    #         cnt += 1
+    index = 0
+    with open(f"/dss/dsslegfs01/pn29fi/pn29fi-dss-0016/projects/potato_hap_example/data/haplotype_graph.txt", 'w') as fout:
+        for hapblock in hapblocks:
+            for hap in hapblock[2:]:
+                fout.write(f'{hapblock[0]}\t{hapblock[1]}\t{hap}\t{index}\n')
+                index += 1
 
-
-
-        # TODO: Use the syntenic regions in synd to fetch sequence for syntenic region in each hapblock
-
-    for i, h in enumerate(hapblocks):
-        rs = h[0]
-        re = h[1]
-        for j, ss in enumerate(h[2:]):
-            # Open fasta file where all the fasta sequences for a hapblock would be saves
-            with open(f'hapblocksequence/hap{i}_block{j}.fa', 'r') as fout:
-                for s in ss:
-                    if s == 'dm':
-
-
-
-
-
-
-    hapoblist = deque()
-    cnt = 0
-    for i, h in enumerate(hapblocks):
-        for ss in h[2:]:
-            ss = sorted(ss.split(','))
-            hapoblist.append(hapobject(cnt, h[0], h[1] - 1, ss))
-            cnt += 1
     return
 # END
 
@@ -168,5 +156,77 @@ def get_node_query_sequence():
 
     return
 # END
+
+def get_unique_kmers_per_node():
+    """
+    Read the haplotype graph and:
+    1) Get set of kmers for each node
+    2) Filter out kmers that are present in more than 1 node
+    3) Save the unique kmers for each node
+    :return:
+    """
+
+    from tqdm import tqdm
+    from hometools.hometools import view
+    import pandas as pd
+    hapdf = pd.read_table('/dss/dsslegfs01/pn29fi/pn29fi-dss-0016/projects/potato_hap_example/data/haplotype_graph.txt', header=None)
+
+    # Get kmers that are present in a single node in the graph
+    unikmers = set()
+    badkmers = set()
+    i = 1
+    for row in tqdm(hapdf.itertuples(index=False)):
+        s = row[0]
+        haps = row[2].split(',')
+        kmers = set()
+        for h in haps:
+            try:
+                hkmers = set(pd.read_table(f'synfastas/syn_fasta_{h}_bin_{s}.k51.unique.txt',engine='c', header=None)[0])
+                kmers.update(hkmers)
+            except FileNotFoundError:
+                pass
+        kmers.difference_update(badkmers)
+        badkmers.update(kmers.intersection(unikmers))
+        unikmers.symmetric_difference_update(kmers)
+    with open('/dss/dsslegfs01/pn29fi/pn29fi-dss-0016/projects/potato_hap_example/data/unikmers.txt', 'w') as fout:
+        fout.write('\n'.join(unikmers))
+
+
+    # Get kmers that are unique in each node and save them
+    unikmers = set([l.strip() for l in open('unikmers.txt')])
+    with open('nodekmers.txt', 'w') as fout:
+        for row in tqdm(hapdf.itertuples(index=False)):
+            s = row[0]
+            haps = row[2].split(',')
+            kmers = set()
+            for h in haps:
+                try:
+                    hkmers = set(pd.read_table(f'synfastas/syn_fasta_{h}_bin_{s}.k51.unique.txt', engine='c', header=None)[0])
+                    kmers.update(hkmers)
+                except FileNotFoundError:
+                    pass
+            kmers.intersection_update(unikmers)
+            unikmers.difference_update(kmers)
+            fout.write("\n".join([f'{row[3]}\t{k}' for k in kmers]) + "\n")
+    return
+# END
+
+
+def summary_plots_kmers_per_node():
+    """
+    Collection of plots to describe how many nodes have kmers and various distributions
+    :return:
+    """
+    from collections import deque, Counter
+    from matplotlib import pyplot as plt
+
+    nodecnts = deque()
+    i = 100
+    with open('nodekmers.txt', 'r') as fin:
+        for line in fin:
+            nodecnts.append(line.strip())
+    nodecnts = Counter(nodecnts)
+
+    plt.hist(nodecnts.values(), bins=100)
 
 
