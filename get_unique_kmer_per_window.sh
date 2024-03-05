@@ -17,10 +17,5 @@ ls syn_fasta_${genome}_hap${hap}*fasta \
 tar -cf syn_fasta_${genome}_hap${hap}.tar $(ls -d syn_fasta_${genome}_hap${hap}_bin_*/)
 rm -r $(ls -d syn_fasta_${genome}_hap${hap}_bin_*/)
 
-#$meryl k=21 count threads=40 memory=100 output ${s}_R1.meryl ${s}_ql-trimmed-pair1.fastq.gz &
-#    $meryl k=21 count threads=40 memory=100 output ${s}_R2.meryl ${s}_ql-trimmed-pair2.fastq.gz &
-#    "
-#done
-#
 ## Combine Meryl databases
 #$meryl union-sum output rp.meryl A_R1.meryl A_R2.meryl B_R1.meryl B_R2.meryl C_R1.meryl C_R2.meryl D_R1.meryl D_R2.meryl
