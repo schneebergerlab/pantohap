@@ -14,8 +14,9 @@ ls syn_fasta_${genome}_hap${hap}*fasta \
 | sed 's/\.fasta//g' \
 | xargs -n1 -P ${cpu} -I {} bash -c "$meryl print k=51 equal-to 1 threads=1 memory=5 {} > {}.k51.unique.txt " -- {}
 
+tar -cf syn_fasta_${genome}_hap${hap}.tar $(ls -d syn_fasta_${genome}_hap${hap}_bin_*/)
+rm -r $(ls -d syn_fasta_${genome}_hap${hap}_bin_*/)
 
-#
 #$meryl k=21 count threads=40 memory=100 output ${s}_R1.meryl ${s}_ql-trimmed-pair1.fastq.gz &
 #    $meryl k=21 count threads=40 memory=100 output ${s}_R2.meryl ${s}_ql-trimmed-pair2.fastq.gz &
 #    "
