@@ -1,3 +1,9 @@
+from collections import defaultdict
+
+import numpy as np
+import pandas as pd
+
+
 def editdist(iter1, iter2):
     """
     Get the number of positions at which the two iterators are different.
@@ -181,7 +187,7 @@ def get_unique_kmers_per_node():
         kmers = set()
         for h in haps:
             try:
-                hkmers = set(pd.read_table(f'synfastas/syn_fasta_{h}_bin_{s}.k51.unique.txt',engine='c', header=None)[0])
+                hkmers = set(pd.read_table(f'synfastas/syn_fasta_{h}_bin_{s}.k51.unique.txt', engine='c', header=None)[0])
                 kmers.update(hkmers)
             except FileNotFoundError:
                 pass
@@ -219,14 +225,60 @@ def summary_plots_kmers_per_node():
     """
     from collections import deque, Counter
     from matplotlib import pyplot as plt
+    from tqdm import tqdm
+    from hometools.plot import cleanax
 
+    allnodes = tuple(range(2927))
     nodecnts = deque()
     i = 100
-    with open('nodekmers.txt', 'r') as fin:
-        for line in fin:
-            nodecnts.append(line.strip())
+    with open('/home/ra98jam/projects/pantohap/results/potato_haps/nodekmers.txt', 'r') as fin:
+        for line in tqdm(fin):
+            try:
+                nodecnts.append(int(line.strip().split()[0]))
+            except IndexError:
+                pass
     nodecnts = Counter(nodecnts)
+    nodecntscomp = defaultdict(int)
+    for n in allnodes:
+        try:
+            nodecntscomp[n] = nodecnts[n]
+        except KeyError:
+            pass
+    # kmer Count histogram
+    plt.hist(nodecntscomp.values(), bins=200)
+    plt.yscale('log')
+    plt.xscale('linear')
+    plt.xlabel('Number of Kmers (k=51)')
+    plt.ylabel('Number of Nodes')
+    plt.title('Total number of nodes in Chr02')
+    plt.tight_layout()
+    plt.close()
 
-    plt.hist(nodecnts.values(), bins=100)
+    # Kmer distribution along the chromosome
+    ## Read node location
+    hapg = pd.read_table(f'/home/ra98jam/projects/pantohap/results/potato_haps/haplotype_graph.txt', header=None)
+    kmerfreq = [10, 100, 500, 1000, 5000, 10000]
+    fig = plt.figure(figsize=[12, 8])
+    addleg = True
+    for i, k in enumerate(kmerfreq):
+        chrkmercnt = dict()
+        for grp in hapg.groupby([0, 1]):
+            ncnt = grp[1].shape[0]
+            highkmernct = sum([True for n in grp[1][3] if nodecntscomp[n] > k])
+            chrkmercnt[grp[0]] = (ncnt, highkmernct)
+        xranges = list(chrkmercnt.keys())
+        ax = fig.add_subplot(len(kmerfreq), 1, i+1)
+        ax.plot([np.mean(x) for x in xranges], [chrkmercnt[x][0] for x in xranges], color='black', label='In graph')
+        ax.plot([np.mean(x) for x in xranges], [chrkmercnt[x][1] for x in xranges], color='red', label='High Kmer count')
+        ax.set_xlabel('Chromosome position')
+        ax.set_ylabel('#Nodes')
+        ax.set_title(f'Kmer freq cutoff {k}, k=51')
+        ax = cleanax(ax)
+        if addleg:
+            ax.legend()
+            addleg = False
+    plt.tight_layout()
+    plt.close()
+
 
 
