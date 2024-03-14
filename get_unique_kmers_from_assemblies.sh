@@ -21,9 +21,9 @@ for i in 1 2 3 4; do
   # Call kmers
   srun $meryl k=51 count threads=4 memory=20 output ${chars[${SLURM_ARRAY_TASK_ID}]}_hap${i} ${indir}/${chars[${SLURM_ARRAY_TASK_ID}]}_hap${i}_genome.fasta
   # Select unique kmers
-  srun $meryl print equal-to 1 ${chars[${SLURM_ARRAY_TASK_ID}]}_hap${i} \
-   | gzip > ${chars[${SLURM_ARRAY_TASK_ID}]}_hap${i}.unique.k51.txt.gz
-   # Tar and delete the database
-  tar -cf ${chars[${SLURM_ARRAY_TASK_ID}]}_hap${i}.tar ${chars[${SLURM_ARRAY_TASK_ID}]}_hap${i}
-  rm -r ${chars[${SLURM_ARRAY_TASK_ID}]}_hap${i}
+#  srun $meryl print equal-to 1 ${chars[${SLURM_ARRAY_TASK_ID}]}_hap${i} \
+#   | gzip > ${chars[${SLURM_ARRAY_TASK_ID}]}_hap${i}.unique.k51.txt.gz
+#   # Tar and delete the database
+#  tar -cf ${chars[${SLURM_ARRAY_TASK_ID}]}_hap${i}.tar ${chars[${SLURM_ARRAY_TASK_ID}]}_hap${i}
+#  rm -r ${chars[${SLURM_ARRAY_TASK_ID}]}_hap${i}
 done
