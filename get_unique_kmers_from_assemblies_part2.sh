@@ -28,3 +28,5 @@ for c in {A..J}; do
   wait
 done
 
+# Merge unimers
+srun $meryl union output all_genome_good */*good

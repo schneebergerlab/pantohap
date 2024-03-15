@@ -7,7 +7,8 @@
 
 # <editor-fold desc='Kmer counting'>
 # For each genome, select kmers present only once in the assembly
-get_unique_kmers_from_assemblies.sh
+get_unique_kmers_from_assemblies_part1.sh
+get_unique_kmers_from_assemblies_part2.sh
 
 # for each 100kb window, get syntenic sequence from query (40 hap) genomes.
 get_node_query_sequence()
