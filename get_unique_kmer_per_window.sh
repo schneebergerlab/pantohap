@@ -32,7 +32,3 @@ meryl union syn_fasta_${genome}_hap${hap}_bin_*_good output ${genome}_hap${hap}_
 tar -cf syn_fasta_${genome}_hap${hap}.tar $(ls -d syn_fasta_${genome}_hap${hap}_bin_*/)
 rm -r $(ls -d syn_fasta_${genome}_hap${hap}_bin_*/)
 
-
-
-
-syn_fasta_A_hap5_bin_10100001
