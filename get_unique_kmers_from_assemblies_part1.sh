@@ -4,7 +4,7 @@
 #SBATCH --clusters=biohpc_gen
 #SBATCH --partition=biohpc_gen_normal
 #SBATCH --ntasks=4
-#SBATCH --cpus-per-task=4
+#SBATCH --cpus-per-task=1
 #SBATCH --mem-per-cpu=5000mb
 #SBATCH --time=12:00:00
 #SBATCH -J get_unique_kmers
@@ -13,11 +13,10 @@ indir='/dss/dsslegfs01/pn29fi/pn29fi-dss-0016/projects/potato_hap_example/data/a
 cwd=/dss/dsslegfs01/pn29fi/pn29fi-dss-0016/projects/potato_hap_example/results/kmer_analysis/
 meryl=/dss/dsslegfs01/pn29fi/pn29fi-dss-0003/software/bin_manish/anaconda3/envs/mgpy3.8/bin/meryl
 chars=({A..J})
-ks=(21 31 41 51)
 
 for i in 1 2 3 4; do
   {
-    for k in ks; do
+    for k in 21 31 41 51; do
       # Create folder corresponding to specific K-mer for each haplotype
       cd $cwd
       mkdir -p kmer_size_${k}; cd kmer_size_${k}
