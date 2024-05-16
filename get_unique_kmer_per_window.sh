@@ -25,7 +25,7 @@ comment
 # Select kmers that are present only once in the fasta and are good kmer in the sample
 ls syn_fasta_${genome}_hap${hap}*fasta \
 | sed 's/\.fasta//g' \
-| xargs -n1 -P ${cpu} -I {} bash -c "$meryl k=51 threads=1 memory=${mem} intersect [ equal-to 1 {} ] ${goodkmerdir}/kmer_size_${k}/${genome}_hap$((hap-4))/${genome}_hap$((hap-4))_good output {}_good " -- {}
+| xargs -n1 -P ${cpu} -I {} bash -c "$meryl k=51 threads=1 memory=${mem} intersect [ equal-to 1 {} ] ${genome}_hap$((hap-4))_good output {}_good " -- {}
 
 
 # Print selected kmers

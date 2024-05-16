@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --array=0-9
+#SBATCH --array=0-0
 #SBATCH --get-user-env
 #SBATCH --clusters=biohpc_gen
 #SBATCH --partition=biohpc_gen_normal
@@ -15,14 +15,14 @@ cwd=/dss/dsslegfs01/pn29fi/pn29fi-dss-0016/projects/potato_hap_example/results/k
 chars=({A..J})
 
 for i in 5 6 7 8; do
-  {
   for k in 21 31 41 51; do
     cd $cwd; cd kmer_size_${k}; cd ${chars[${SLURM_ARRAY_TASK_ID}]}_hap$((i-4))
 
     srun --exclusive --ntasks 1 --cpus-per-task ${SLURM_CPUS_PER_TASK} --mem-per-cpu=${SLURM_MEM_PER_CPU} \
 	    /dss/dsslegfs01/pn29fi/pn29fi-dss-0016/projects/potato_hap_example/tool/get_unique_kmer_per_window.sh \
       	    ${chars[${SLURM_ARRAY_TASK_ID}]} $i $k ${SLURM_CPUS_PER_TASK} 5 # threads and mem also parsed
+    break
   done
-  } &
+  break
 done
 wait
