@@ -8,8 +8,6 @@
 #SBATCH --mem-per-cpu=5000mb
 #SBATCH --time=12:00:00
 #SBATCH -J get_unique_kmers
-#SBATCH --error=sample${SLURM_CPUS_PER_TASK}
-#SBATCH --output=sample${SLURM_CPUS_PER_TASK}
 
 cwd=/dss/dsslegfs01/pn29fi/pn29fi-dss-0016/projects/potato_hap_example/results/kmer_analysis/
 chars=({A..J})
