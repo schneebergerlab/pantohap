@@ -11,12 +11,12 @@ synfastadir=/dss/dsslegfs01/pn29fi/pn29fi-dss-0016/projects/potato_hap_example/d
 
 # Extract fasta files from the tars
 tar -xf ${synfastadir}/syn_fasta_${genome}_hap${hap}.fasta.tar.gz
-<<comment
+
 # Get k-mers in each fasta sequence file
 ls syn_fasta_${genome}_hap${hap}*fasta \
 | sed 's/\.fasta//g' \
 | xargs -n1 -P ${cpu} -I {} $meryl k=${k} count threads=1 memory=5 output {} {}.fasta
-comment
+
 <<comment
 # Untar (if tar)
 tar -xf syn_fasta_${genome}_hap${hap}.tar
@@ -24,7 +24,6 @@ comment
 
 # Select kmers that are present only once in the fasta and are good kmer in the sample
 ls syn_fasta_${genome}_hap${hap}*fasta \
-| head -6 \
 | sed 's/\.fasta//g' \
 | xargs -n1 -P ${cpu} -I {} bash -c "$meryl k=${k} threads=1 memory=${mem} intersect {} ${genome}_hap$((hap-4))_good output {}_good " -- {}
 
