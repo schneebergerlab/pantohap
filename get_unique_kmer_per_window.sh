@@ -31,7 +31,7 @@ ls syn_fasta_${genome}_hap${hap}*fasta \
 # Print selected kmers
 ls syn_fasta_${genome}_hap${hap}*fasta \
 | sed 's/\.fasta//g' \
-| xargs -n1 -P ${cpu} -I {} bash -c "$meryl k=${k} threads=1 memory=${mem} print {}_good  > {}.k51.good.txt " -- {}
+| xargs -n1 -P ${cpu} -I {} bash -c "$meryl k=${k} threads=1 memory=${mem} print {}_good  > {}.k${k}.good.txt " -- {}
 
 <<comment
 meryl union syn_fasta_${genome}_hap${hap}_bin_*_good output ${genome}_hap${hap}_good
@@ -49,8 +49,8 @@ rm syn_fasta_${genome}_hap${hap}*fasta
 # Archive selected kmers
 ## Currently, not used because util.get_unique_kmers_per_node is set up to require random access to kmer files
 <<comment
-tar -zcf syn_fasta_${genome}_hap${hap}.k51.good.txt.tar.gz syn_fasta_${genome}_hap${hap}_bin_*.k51.good.txt
-rm syn_fasta_${genome}_hap${hap}_bin_*.k51.good.txt
+tar -zcf syn_fasta_${genome}_hap${hap}.k${k}.good.txt.tar.gz syn_fasta_${genome}_hap${hap}_bin_*.k${k}.good.txt
+rm syn_fasta_${genome}_hap${hap}_bin_*.k${k}.good.txt
 comment
 
 echo "done"
