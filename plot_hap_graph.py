@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-
+"""
+Plot haplotype graph and the distribution of kmers in the nodes of the graph
+"""
 import argparse
-
-import pandas as pd
 
 
 def cleanax(ax):
@@ -90,6 +90,7 @@ def plot_haplotype_graph(args):
     hapfin = args.hap.name
     nkfin = args.nkstats.name
     outfin = args.out.name
+    outmode = args.mode
 
     s = args.start
     e = args.end
@@ -205,7 +206,7 @@ def plot_haplotype_graph(args):
             # print(start, c[0], nodestat)
             if nodestat.shape[0] == 0:
                 continue
-            maxkprop = ((nodestat[2] / maxx) * 80000).iloc[0]
+            maxkprop = ((nodestat[1] / maxx) * 80000).iloc[0]
             # print(start, c[0], maxkprop)
             segments = np.array([[[hapoblist[c[0]].start + offset, yh+0.075], [hapoblist[c[0]].start + offset + maxkprop, yh + 0.075]],
                                  [[hapoblist[c[0]].start + offset + maxkprop, yh + 0.075], [hapoblist[c[0]].end - offset, yh + 0.075]]])
@@ -221,23 +222,24 @@ def plot_haplotype_graph(args):
             ax.add_collection(lc)
             ax.hlines(yh+np.array([0.25, 0.35, 0.45, 0.55, 0.65, 0.75]), xmin=start+offset, xmax=start+100000-offset, linestyles='dashed', colors='grey', linewidth=0.2)
 
-            # # Style 1
-            # try:
-            #     xs = np.linspace(start+offset, start+100000-offset, nodestat[2].iloc[0])
-            #     ys = sorted((np.array([int(x) for x in nodestat[5].iloc[0].split(',')])/hcnt)*0.1)
-            #     ax.plot(xs, yh+0.25+ys, linewidth=1, color='black')
-            # except AttributeError:
-            #     continue
-
-            # Style 2
-            try:
-                kcnts = Counter([int(x) for x in nodestat[5].iloc[0].split(',')])
-                mk = max(kcnts.values())
-                xs = np.linspace(start+offset, start+100000-offset, 161)
-                ax.plot(xs, yh+0.25+np.array([(kcnts[i]/mk)*0.5 for i in range(len(xs))]), color='black', linewidth=0.2)
-                ax.vlines(xs[[(int(hcnt)*i) for i in range(1, 6)]], yh+0.25, yh+0.75, colors='grey', zorder=0, linewidth=0.2)
-            except AttributeError:
-                continue
+            if outmode == 1:
+                # Style 1
+                try:
+                    xs = np.linspace(start+offset, start+100000-offset, nodestat[2].iloc[0])
+                    ys = sorted((np.array([int(x) for x in nodestat[5].iloc[0].split(',')])/hcnt)*0.1)
+                    ax.plot(xs, yh+0.25+ys, linewidth=1, color='black')
+                except AttributeError:
+                    continue
+            elif outmode == 2:
+                # Style 2
+                try:
+                    kcnts = Counter([int(x) for x in nodestat[5].iloc[0].split(',')])
+                    mk = max(kcnts.values())
+                    xs = np.linspace(start+offset, start+100000-offset, 161)
+                    ax.plot(xs, yh+0.25+np.array([(kcnts[i]/mk)*0.5 for i in range(len(xs))]), color='black', linewidth=0.2)
+                    ax.vlines(xs[[(int(hcnt)*i) for i in range(1, 6)]], yh+0.25, yh+0.75, colors='grey', zorder=0, linewidth=0.2)
+                except AttributeError:
+                    continue
 
         p = PatchCollection(list(pcoll), facecolors='none', edgecolors='grey', linewidths=0.2)
         ax.add_collection(p)
@@ -257,5 +259,6 @@ if __name__ == '__main__':
     parser.add_argument('out', help='Output plot file name (add .pdf or .png)', type=argparse.FileType('w'))
     parser.add_argument('-s', dest='start', help='Start position for the visualisation', type=int, default=0)
     parser.add_argument('-e', dest='end', help='End position for the visualisation', type=int, default=1000001)
+    parser.add_argument('--mode', dest='mode', help='Kmer-count mode', type=int, default=1, choices=[1, 2])
     args = parser.parse_args()
     plot_haplotype_graph(args)
