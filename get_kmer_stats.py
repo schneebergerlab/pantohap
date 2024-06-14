@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
-import argparse
 
+"""
+For a given sample, fetch kmer counts for node-specific and window-specific kmers.
+"""
+import argparse
 
 def isgzip(f):
     '''
@@ -18,13 +21,14 @@ def isgzip(f):
     return isgz
 # END
 
+
 def count_kmers_from_samples(samplekmersfin):
     """
     For a given sample, fetch kmer counts for node-specific and window-specific kmers.
     :return: Generates
     """
     import os
-    from hometools.hometools import isgzip
+    # from hometools.hometools import isgzip
     from gzip import open as gzopen
     from collections import defaultdict, deque
     import numpy as np
@@ -85,7 +89,6 @@ def count_kmers_from_samples(samplekmersfin):
     # Generate plots here: analysis_plots.node_k_stats_plots
     return
 # END
-
 
 
 if __name__ == '__main__':
