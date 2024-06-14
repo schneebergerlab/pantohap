@@ -181,7 +181,9 @@ def plot_haplotype_graph(args):
 
     line_segments = LineCollection(segs, colors=cs, linestyle='solid', linewidths=1)
     ax.add_collection(line_segments)
-    ax.set_ylim(math.floor(min(G.vs['height'])), math.ceil(max(G.vs['height'])))
+    # ax.set_ylim(math.floor(min(G.vs['height'])), math.ceil(max(G.vs['height'])))
+    hpos = [G.vs['height'][h.id] for start in range(s, e, 100000) for h in hapoblist if h.start == start + 1]
+    ax.set_ylim(math.floor(min(hpos)), math.ceil(max(hpos)))
 
     # starts = list(range(34800000, 35400000, 100000))
 
@@ -200,8 +202,8 @@ def plot_haplotype_graph(args):
                 p1 = (hapoblist[c[0]].end - offset, yh)
                 p2 = (hapoblist[ssi].start + offset, G.vs[ssi]['height'])
                 pcoll.append(bezierlink(p1, p2))
-            # Get kmer-proportion
 
+            # Get kmer-proportion
             nodestat = nkstats.loc[nkstats[0] == c[0]]
             # print(start, c[0], nodestat)
             if nodestat.shape[0] == 0:
