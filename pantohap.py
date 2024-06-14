@@ -15,7 +15,6 @@ util.hapnodesfromvcffile()
 run_msyd.sh
 # </editor-fold>
 
-
 # <editor-fold desc='Kmer counting'>
 cwd=/dss/dsslegfs01/pn29fi/pn29fi-dss-0016/projects/potato_hap_example/results/kmer_analysis/
 meryl=/dss/dsslegfs01/pn29fi/pn29fi-dss-0003/software/bin_manish/anaconda3/envs/mgpy3.8/bin/meryl
@@ -50,9 +49,9 @@ SBATCH_get_unique_kmer_per_window.sh
 from functools import partial
 from multiprocessing import Pool
 cwd = '/dss/dsslegfs01/pn29fi/pn29fi-dss-0016/projects/potato_hap_example/results/kmer_analysis/'
+cwd = '/home/ra98jam/d16/projects/potato_hap_example/results/kmer_analysis/'
 with Pool(processes=4) as pool:
-    for k in [21, 31, 41, 51]:
-        get_unique_kmers_per_node(cwd, k) # Creates nodekmers.txt
+    pool.map(partial(get_unique_kmers_per_node, cwd=cwd), [21, 31, 41, 51])
 
 
 # Generate summary statistics
