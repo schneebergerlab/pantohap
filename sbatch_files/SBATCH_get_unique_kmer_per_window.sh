@@ -11,7 +11,6 @@
 
 cwd=/dss/dsslegfs01/pn29fi/pn29fi-dss-0016/projects/potato_hap_example/results/kmer_analysis/
 chars=({A..J})
-is=({5..8})
 
 #c=${chars[$((SLURM_ARRAY_TASK_ID/4))]}
 #i=${is[$((SLURM_ARRAY_TASK_ID%4))]}
