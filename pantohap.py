@@ -1,6 +1,15 @@
 # <editor-fold desc='Step1: Generate haplotype graph'>
+# Update SNPs genotype to include the information about the deletion or SR markers
+# SNP_type - Genotype
+# REF_allele in syntenic            -           0
+# ALT_allele in syntenic            -           1
+# Deleted                           -           2
+# In inversion                      -           3
+# In TDs (considered as deletion)   -           2
+
 
 # Currently use the graph generated using binning of reference genomes
+util.hapnodesfromvcffile()
 
 # TODO: Consider using msyd hap-graph for this problem
 run_msyd.sh
