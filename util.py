@@ -15,7 +15,7 @@ from tqdm import tqdm
 import seaborn as sns
 
 from hometools.plot import cleanax, loghist
-from hometools.hometools import isgzip
+from hometools.hometools import isgzip, mapbp
 
 # </editor-fold>
 
@@ -180,6 +180,38 @@ def hapnodesfromvcffile(snpfin):
             return gen in self.genomes
         # END
 
+    def getnodes(start):
+        print(start)
+        # end = a[i + 1]
+        end = start + 100000    # Window size
+        snps = snpdf.loc[(snpdf.position >= start) & (snpdf.position < end)].copy()
+        # snpdf.drop(snps.index, inplace=True)
+        snpgt = snps.iloc[:, 7:]
+        snpgt = snpgt.T
+        if snpgt.shape[1] == 0:
+            return [start, end]
+
+        haplist = [grp for i, grp in snpgt.groupby(list(snpgt.columns))]
+        nhap = len(haplist)
+
+        # Find groups of haps that are very similar (divergence < 10%)
+        # dist = [editdist(i.iloc[0], j.iloc[0]) for i, j in product(haplist, haplist)]
+        dmat = np.reshape([editdist(i.iloc[0], j.iloc[0]) for i, j in product(haplist, haplist)], [nhap, nhap])
+        conn = (dmat / haplist[0].shape[1]) < 0.10
+        conn = np.triu(conn, 1)
+        g = ig.Graph.Adjacency(conn)
+        hapgrp = g.connected_components(mode='weak')
+
+        # Merge haps that are within the same group
+        hapglist = []
+        for hg in hapgrp:
+            hap = pd.concat([haplist[i] for i in hg])
+            hapglist.append(hap)
+        nhap = len(hapglist)
+        hapsample = [','.join(sorted(h.index.values)) for h in hapglist]
+        return [start, end] + hapsample
+    # END
+
     # snpfin = f"/dss/dsslegfs01/pn29fi/pn29fi-dss-0016/projects/potato_hap_example/data/dm_all_sample_chr2.syri.nosr.snps.merged.vcf.txt"
     pwd = '/dss/dsslegfs01/pn29fi/pn29fi-dss-0016/projects/potato_hap_example/data'
     pwd = '/home/ra98jam/d16/projects/potato_hap_example/data/'
@@ -197,34 +229,38 @@ def hapnodesfromvcffile(snpfin):
     a = np.arange(1, chrsize, 100000)
     a = np.append(a, chrsize)
 
-    hapblocks = deque()
-    for i, start in tqdm(enumerate(a[:-1])):
-        end = a[i + 1]
-        snps = snpdf.loc[(snpdf.position >= start) & (snpdf.position < end)].copy()
-        snpgt = snps.iloc[:, 7:]
-        snpgt = snpgt.T
-        if snpgt.shape[1] == 0:
-            continue
+    with Pool(processes=20) as pool:
+        hapblocks = pool.map(getnodes, a[:-1])
 
-        haplist = [grp for i, grp in snpgt.groupby(list(snpgt.columns))]
-        nhap = len(haplist)
-
-        # Find groups of haps that are very similar (divergence < 10%)
-        dist = [editdist(i.iloc[0], j.iloc[0]) for i, j in product(haplist, haplist)]
-        dmat = np.reshape([editdist(i.iloc[0], j.iloc[0]) for i, j in product(haplist, haplist)], [nhap, nhap])
-        conn = (dmat / haplist[0].shape[1]) < 0.10
-        conn = np.triu(conn, 1)
-        g = ig.Graph.Adjacency(conn)
-        hapgrp = g.connected_components(mode='weak')
-
-        # Merge haps that are within the same group
-        hapglist = []
-        for hg in hapgrp:
-            hap = pd.concat([haplist[i] for i in hg])
-            hapglist.append(hap)
-        nhap = len(hapglist)
-        hapsample = [','.join(sorted(h.index.values)) for h in hapglist]
-        hapblocks.append([start, end] + hapsample)
+    # hapblocks = deque()
+    # for i, start in tqdm(enumerate(a[:-1])):
+    #     end = a[i + 1]
+    #     snps = snpdf.loc[(snpdf.position >= start) & (snpdf.position < end)].copy()
+    #     snpdf.drop(snps.index, inplace=True)
+    #     snpgt = snps.iloc[:, 7:]
+    #     snpgt = snpgt.T
+    #     if snpgt.shape[1] == 0:
+    #         continue
+    #
+    #     haplist = [grp for i, grp in snpgt.groupby(list(snpgt.columns))]
+    #     nhap = len(haplist)
+    #
+    #     # Find groups of haps that are very similar (divergence < 10%)
+    #     dist = [editdist(i.iloc[0], j.iloc[0]) for i, j in product(haplist, haplist)]
+    #     dmat = np.reshape([editdist(i.iloc[0], j.iloc[0]) for i, j in product(haplist, haplist)], [nhap, nhap])
+    #     conn = (dmat / haplist[0].shape[1]) < 0.10
+    #     conn = np.triu(conn, 1)
+    #     g = ig.Graph.Adjacency(conn)
+    #     hapgrp = g.connected_components(mode='weak')
+    #
+    #     # Merge haps that are within the same group
+    #     hapglist = []
+    #     for hg in hapgrp:
+    #         hap = pd.concat([haplist[i] for i in hg])
+    #         hapglist.append(hap)
+    #     nhap = len(hapglist)
+    #     hapsample = [','.join(sorted(h.index.values)) for h in hapglist]
+    #     hapblocks.append([start, end] + hapsample)
 
     # hapoblist = deque()
     # cnt = 0
@@ -234,7 +270,8 @@ def hapnodesfromvcffile(snpfin):
     #         hapoblist.append(hapobject(cnt, h[0], h[1] - 1, ss))
     #         cnt += 1
     index = 0
-    with open(f"{pwd}/haplotype_graph_{str(datetime.now().date()).replace('-', '_')}.txt", 'w') as fout:
+    # with open(f"{pwd}/haplotype_graph_{str(datetime.now().date()).replace('-', '_')}.txt", 'w') as fout:
+    with open(f"{pwd}/haplotype_graph_with_Otava{str(datetime.now().date()).replace('-', '_')}.txt", 'w') as fout:
         for hapblock in hapblocks:
             for hap in hapblock[2:]:
                 fout.write(f'{hapblock[0]}\t{hapblock[1]}\t{hap}\t{index}\n')
@@ -242,6 +279,76 @@ def hapnodesfromvcffile(snpfin):
 
     return
 # END
+
+
+def get_sequence(sample, pwd, a):
+        print(sample)
+        g, h = sample.split('_hap')
+        # get syn regions
+        synr = pd.read_csv(f'{pwd}/dm_{g}_chr02_hap{h}syri.out', header=None, sep='\t')
+        synr = synr.loc[synr[10] == 'SYNAL']
+        synr[[1, 2, 6, 7]] = synr[[1, 2, 6, 7]].astype(int)
+        synd = dict()
+        for i in a:
+            sinr = synr.loc[(synr[1] < (i+100000)) & (synr[2] > i)]
+            if sinr.shape[0] > 0:
+                pr1 = pr.from_dict({"Chromosome": ["chr02"],
+                                    "Start": [i],
+                                    "End": [i+100000]})
+                pr2 = pr.from_dict({"Chromosome": ["chr02"]*sinr.shape[0],
+                                    "Start": sinr[1],
+                                    "End": sinr[2],
+                                    "query": sinr[[6, 7]].values.tolist()})
+                synd[i] = pr2.intersect(pr1)
+        (chrom, seq) = next(readfasta_iterator(open(f'{pwd}/{g}_chr02_hap{h}.fa', 'r')))
+        TOBREAK = False
+        for i, r in synd.items():
+            with open(f'{pwd}/synfastas/syn_fasta_{sample}_bin_{i}.fasta', 'w') as fout:
+                for c in r.df.itertuples(index=False):
+                    # Get query start position
+                    if c.Start != i:
+                        qs = c[3][0]
+                    else:
+                        # Get the exact matching position when the reference alignment was (potentially) trimmed at the start of the window
+                        mappos = mapbp(sfin=f'{pwd}/dm_{g}_chr02_hap{h}syri.out.bed.gz', mapfin=f'{pwd}/dm_{g}_chr02_hap{h}.bam', d=True, posstr=f'chr02:{i}-{i}')
+                        mappos = list(map(lambda x: int(x.split(':')[1].split('-')[0]) if '+' in x else None, mappos))
+                        mappos = [x for x in mappos if x is not None]
+                        # If more than 1 mapping position was identified, then select the position that is within the selected alignment
+                        if len(mappos) > 1:
+                            mapfit = list(map(lambda x: c[3][0] < x < c[3][1], mappos))
+                            if mapfit.count(True) == 1:
+                                qs = mappos[mapfit.index(True)]
+                            else:
+                                print('Breaking qs')
+                                TOBREAK = True
+                                break
+                        else:
+                            qs = mappos[0]
+
+                    # Get query end position
+                    if c.End != i+100000:
+                        qe = c[3][1]
+                    else:
+                        # Get the exact matching position when the reference alignment was (potentially) trimmed at the end of the window
+                        mappos = mapbp(sfin=f'{pwd}/dm_{g}_chr02_hap{h}syri.out.bed.gz', mapfin=f'{pwd}/dm_{g}_chr02_hap{h}.bam', d=True, posstr=f'chr02:{i+100000}-{i+100000}')
+                        mappos = list(map(lambda x: int(x.split(':')[1].split('-')[0]) if '+' in x else None, mappos))
+                        mappos = [x for x in mappos if x is not None]
+                        # If more than 1 mapping position was identified, then select the position that is within the selected alignment
+                        if len(mappos) > 1:
+                            mapfit = list(map(lambda x: c[3][0] < x < c[3][1], mappos))
+                            if mapfit.count(True) == 1:
+                                qe = mappos[mapfit.index(True)]
+                                # print(c, mappos, qe)
+                            else:
+                                print('Breaking qe')
+                                TOBREAK = True
+                                break
+                        else:
+                            qe = mappos[0]
+                    fout.write(f'>chr02_{g}_hap{h}_r_{c[1]}_{c[2]}_q_{qs}_{qe}\n')
+                    fout.write(seq[(qs-1):qe] + '\n')
+                if TOBREAK:
+                    break
 
 
 def get_node_query_sequence():
@@ -258,43 +365,92 @@ def get_node_query_sequence():
     from hometools.hometools import extractseq, readfasta_iterator, mapbp
     import string
     import pyranges as pr
+    from multiprocessing import Pool
+    from functools import partial
+
+
 
     chrsize = 46102915
     samples = ['dm'] + [f'{i}_hap{j}' for i, j in product(string.ascii_uppercase[:10], range(5, 9))]
-
+    pwd = '/home/ra98jam/d16/projects/potato_hap_example/data/'
     a = np.arange(1, chrsize, 100000)
     a = np.append(a, chrsize)
+    with Pool(processes=10) as pool:
+        pool.map(partial(get_sequence, pwd=pwd, a=a), samples[1:])
+    return
 
-    # Run in /dss/dsslegfs01/pn29fi/pn29fi-dss-0016/projects/potato_hap_example/data/
-    # For each sample, select syntenic region in each window (100kb). Skip DM.
-    for sample in samples[1:]:
-        print(sample)
-        g, h = sample.split('_hap')
-        # get syn regions
-        synr = pd.read_csv(f'dm_{g}_chr02_hap{h}syri.out', header=None, sep='\t')
-        synr = synr.loc[synr[10] == 'SYNAL']
-        synr[[1, 2, 6, 7]] = synr[[1, 2, 6, 7]].astype(int)
-        synd = dict()
-        for i in a:
-            sinr = synr.loc[(synr[1] < (i+100000)) & (synr[2] > i)]
-            if sinr.shape[0] > 0:
-                pr1 = pr.from_dict({"Chromosome": ["chr02"],
-                                    "Start": [i],
-                                    "End": [i+100000]})
-                pr2 = pr.from_dict({"Chromosome": ["chr02"]*sinr.shape[0],
-                                    "Start": sinr[1],
-                                    "End": sinr[2],
-                                    "query": sinr[[6, 7]].values.tolist()})
-                synd[i] = pr2.intersect(pr1)
-
-        (chrom, seq) = next(readfasta_iterator(open(f'{g}_chr02_hap{h}.fa', 'r')))
-
-        for i, r in synd.items():
-            with open(f'/dss/dsslegfs01/pn29fi/pn29fi-dss-0016/projects/potato_hap_example/data/synfastas/syn_fasta_{sample}_bin_{i}.fasta',
-                    'w') as fout:
-                for c in r.df.itertuples(index=False):
-                    fout.write(f'>chr02_{g}_hap{h}_r_{c[1]}_{c[2]}_q_{c[3][0]}_{c[3][1]}\n')
-                    fout.write(seq[(c[3][0]-1):c[3][1]] + '\n')
+    #
+    # # Run in /dss/dsslegfs01/pn29fi/pn29fi-dss-0016/projects/potato_hap_example/data/
+    # # For each sample, select syntenic region in each window (100kb). Skip DM.
+    # for sample in samples[1:5]:
+    #     print(sample)
+    #     g, h = sample.split('_hap')
+    #     # get syn regions
+    #     synr = pd.read_csv(f'{pwd}/dm_{g}_chr02_hap{h}syri.out', header=None, sep='\t')
+    #     synr = synr.loc[synr[10] == 'SYNAL']
+    #     synr[[1, 2, 6, 7]] = synr[[1, 2, 6, 7]].astype(int)
+    #     synd = dict()
+    #     for i in a:
+    #         sinr = synr.loc[(synr[1] < (i+100000)) & (synr[2] > i)]
+    #         if sinr.shape[0] > 0:
+    #             pr1 = pr.from_dict({"Chromosome": ["chr02"],
+    #                                 "Start": [i],
+    #                                 "End": [i+100000]})
+    #             pr2 = pr.from_dict({"Chromosome": ["chr02"]*sinr.shape[0],
+    #                                 "Start": sinr[1],
+    #                                 "End": sinr[2],
+    #                                 "query": sinr[[6, 7]].values.tolist()})
+    #             synd[i] = pr2.intersect(pr1)
+    #     (chrom, seq) = next(readfasta_iterator(open(f'{pwd}/{g}_chr02_hap{h}.fa', 'r')))
+    #
+    #     TOBREAK = False
+    #     for i, r in synd.items():
+    #         with open(f'{pwd}/synfastas/syn_fasta_{sample}_bin_{i}.fasta', 'w') as fout:
+    #             for c in r.df.itertuples(index=False):
+    #                 # Get query start position
+    #                 if c.Start != i:
+    #                     qs = c[3][0]
+    #                 else:
+    #                     # Get the exact matching position when the reference alignment was (potentially) trimmed at the start of the window
+    #                     mappos = mapbp(sfin=f'{pwd}/dm_{g}_chr02_hap{h}syri.out.bed.gz', mapfin=f'{pwd}/dm_{g}_chr02_hap{h}.bam', d=True, posstr=f'chr02:{i}-{i}')
+    #                     mappos = list(map(lambda x: int(x.split(':')[1].split('-')[0]) if '+' in x else None, mappos))
+    #                     mappos = [x for x in mappos if x is not None]
+    #                     # If more than 1 mapping position was identified, then select the position that is within the selected alignment
+    #                     if len(mappos) > 1:
+    #                         mapfit = list(map(lambda x: c[3][0] < x < c[3][1], mappos))
+    #                         if mapfit.count(True) == 1:
+    #                             qs = mappos[mapfit.index(True)]
+    #                         else:
+    #                             print('Breaking qs')
+    #                             TOBREAK = True
+    #                             break
+    #                     else:
+    #                         qs = mappos[0]
+    #
+    #                 # Get query end position
+    #                 if c.End != i+100000:
+    #                     qe = c[3][1]
+    #                 else:
+    #                     # Get the exact matching position when the reference alignment was (potentially) trimmed at the end of the window
+    #                     mappos = mapbp(sfin=f'{pwd}/dm_{g}_chr02_hap{h}syri.out.bed.gz', mapfin=f'{pwd}/dm_{g}_chr02_hap{h}.bam', d=True, posstr=f'chr02:{i+100000}-{i+100000}')
+    #                     mappos = list(map(lambda x: int(x.split(':')[1].split('-')[0]) if '+' in x else None, mappos))
+    #                     mappos = [x for x in mappos if x is not None]
+    #                     # If more than 1 mapping position was identified, then select the position that is within the selected alignment
+    #                     if len(mappos) > 1:
+    #                         mapfit = list(map(lambda x: c[3][0] < x < c[3][1], mappos))
+    #                         if mapfit.count(True) == 1:
+    #                             qe = mappos[mapfit.index(True)]
+    #                             # print(c, mappos, qe)
+    #                         else:
+    #                             print('Breaking qe')
+    #                             TOBREAK = True
+    #                             break
+    #                     else:
+    #                         qe = mappos[0]
+    #                 fout.write(f'>chr02_{g}_hap{h}_r_{c[1]}_{c[2]}_q_{qs}_{qe}\n')
+    #                 fout.write(seq[(qs-1):qe] + '\n')
+    #             if TOBREAK:
+    #                 break
     return
 # END
 
