@@ -655,7 +655,7 @@ def get_threads():
     G.vs['cor'] = cor_plo
 
     # Save figures
-    ig.plot(G, target='tmp.pdf', layout='kk', vertex_size=np.array(G.degree())+4, vertex_color=G.vs['cor'], vertex_frame_color="black", vertex_frame_width=0.5,  edge_width=0, edge_arrow_size=0.3, bbox=[1000, 1000])
+    ig.plot(G, target='tmp.pdf', layout='kk', vertex_size=np.array(G.degree())+4, vertex_color=G.vs['cor'], vertex_frame_color="black", vertex_frame_width=0,  edge_width=0.1, edge_arrow_size=0.2, bbox=[800, 800])
 # END
 
 # <editor-fold desc="OBSOLETE FUNCTIONS">
