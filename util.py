@@ -48,8 +48,9 @@ def editdist(iter1, iter2):
 
 def getsamplestates(sid, pwd, snpdf):
     print(sid)
-    # hdf = pd.read_table(f'{pwd}/dm_{sid[0]}_chr02_hap{sid[1]}syri.out.bed.snp_anno.txt', header=None, low_memory=False)
-    hdf = pd.read_table(f'{pwd}/dm_{sid[0]}_chr02_hap{sid[1]}.with_Otava.syri.out.bed.snp_anno.txt', header=None, low_memory=False)
+    # TODO: Update input file name
+    hdf = pd.read_table(f'{pwd}/dm_{sid[0]}_chr02_hap{sid[1]}syri.out.bed.snp_anno.txt', header=None, low_memory=False)
+    # hdf = pd.read_table(f'{pwd}/dm_{sid[0]}_chr02_hap{sid[1]}.with_Otava.syri.out.bed.snp_anno.txt', header=None, low_memory=False)
     hdf = hdf.loc[hdf[6] != 'SNP']
     hdf.sort_values([1, 2], inplace=True)
     state = deque()
@@ -112,11 +113,12 @@ def updatesnpgenotypes():
     """
 
     pwd = '/dss/dsslegfs01/pn29fi/pn29fi-dss-0016/projects/potato_hap_example/data'
-    # snpfin = f"dm_all_sample_chr2.syri.nosr.snps.merged.vcf.txt"
-    snpfin = f"dm_all_sample_chr2.with_Otava.syri.nosr.snps.merged.vcf.txt"
+    # TODO: Update the input file name
+    snpfin = f"dm_all_sample_chr2.syri.nosr.snps.merged.vcf.txt"
+    # snpfin = f"dm_all_sample_chr2.with_Otava.syri.nosr.snps.merged.vcf.txt"
 
     sids = list(product(string.ascii_uppercase[:10], range(5, 9)))
-    sids = list(product(string.ascii_uppercase[:10]+'O', range(5, 9)))
+    # sids = list(product(string.ascii_uppercase[:10]+'O', range(5, 9)))
     # Read snpfin
     snpdf = dict()
     with open(f'{pwd}/{snpfin}', 'r') as fin:
@@ -146,8 +148,9 @@ def updatesnpgenotypes():
     snpdfout = snpdf.reset_index(drop=True)
     snpdfout = pd.concat([anndf, snpdfout], axis=1)
 
-    # snpdfout.to_csv(f'{pwd}/dm_all_sample_chr2.syri.nosr.snps.merged.vcf.del_markers.txt', sep='\t', index=False)
-    snpdfout.to_csv(f'{pwd}/dm_all_sample_chr2.with_Otava.syri.nosr.snps.merged.vcf.del_markers.txt', sep='\t', index=False)
+    # TODO: Update the output file name
+    snpdfout.to_csv(f'{pwd}/dm_all_sample_chr2.syri.nosr.snps.merged.vcf.del_markers.txt', sep='\t', index=False)
+    # snpdfout.to_csv(f'{pwd}/dm_all_sample_chr2.with_Otava.syri.nosr.snps.merged.vcf.del_markers.txt', sep='\t', index=False)
 
     return
 # END
@@ -616,20 +619,43 @@ def get_threads():
         print(row[9:])
         if all([r == 0 for r in row[9:]]):
             return 0
+        # TODO: for a node, I assign based on the maximum probablity from EM.
+        #  So, if for a node, EM outputs probablity of 51% for 1 copy and 49%
+        #  for 2 copy, I assign ploidy of 1 to the node. Probably, this can be
+        #  fine-tuned.
         return row[9:].to_list().index(max(row[9:]))
     # END
 
     ploidy = emout.apply(get_ploidy, axis=1)
     G.vs['ploidy'] = ploidy
 
+    # Delete edges between nodes with unequal ploidy
     to_del = [e for e in G.get_edgelist() if G.vs[e[0]]['ploidy'] != G.vs[e[1]]['ploidy']]
     G.delete_edges(to_del)
 
+    # Delete vertices with ploidy 0
     G.delete_vertices([i for i, p in enumerate(ploidy) if p == 0])
-    fig, ax = plt.subplots()
-    ig.plot(T, target=ax, layout='davidson_harel', vertex_label=T.vs["name"], edge_width=np.log1p(T.es['weight']), vertex_size=0.2)
-    ig.plot(G, target='tmp.pdf', layout='kk', vertex_size=4, vertex_color='red', edge_width=0, edge_arrow_size=0.2)
 
+    # Check whether the predicted ploidy is correct
+    ploidy_color = {
+        0: "lightgrey",
+        1: "orange",
+        2: "blue",
+        3: "red",
+        4: "black"
+    }
+    cor_plo = deque()   # Green for correct ploidy, white for wrong
+    for v in G.vs:
+       p = v['ploidy']
+       gs = vars(hapoblist[v['name']])['genomes']
+       if p == len([g for g in gs if 'A_' in g ]):
+           cor_plo.append(ploidy_color[v['ploidy']])
+       else:
+           cor_plo.append(ploidy_color[0])
+    G.vs['cor'] = cor_plo
+
+    # Save figures
+    ig.plot(G, target='tmp.pdf', layout='kk', vertex_size=np.array(G.degree())+4, vertex_color=G.vs['cor'], vertex_frame_color="black", vertex_frame_width=0.5,  edge_width=0, edge_arrow_size=0.3, bbox=[1000, 1000])
 # END
 
 # <editor-fold desc="OBSOLETE FUNCTIONS">
