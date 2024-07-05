@@ -8,7 +8,10 @@
 # In TDs (considered as deletion)   -           2
 
 
-# Currently use the graph generated using binning of reference genomes
+# Generate haplotype genotype file required for generating haplotype graph
+get_haplotype_vcf.sh
+
+# Currently the graph is generated using binning of reference genomes (util.py)
 util.hapnodesfromvcffile()
 
 # TODO: Consider using msyd hap-graph for this problem
