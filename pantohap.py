@@ -53,6 +53,11 @@ cwd = '/home/ra98jam/d16/projects/potato_hap_example/results/kmer_analysis/'
 with Pool(processes=4) as pool:
     pool.map(partial(get_unique_kmers_per_node, cwd=cwd), [21, 31, 41, 51])
 
+# Run EM to get ploidy levels for each node
+
+# Get a connected paths through the graph
+
+
 
 # Generate summary statistics
 summary_plots_kmers_per_node()

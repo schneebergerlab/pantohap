@@ -464,7 +464,7 @@ def get_unique_kmers_per_node(k, cwd):
     :return:
     """
     from datetime import datetime
-    getdate = lambda : str(datetime.now().date()).replace('-', '_')
+    getdate = lambda: str(datetime.now().date()).replace('-', '_')
 
     def gethapmers(row):
         b = row[0]
@@ -545,6 +545,92 @@ def get_unique_kmers_per_node(k, cwd):
     return
 # END
 
+
+def get_threads():
+    import igrap
+
+    def find_all_paths(graph, start, end):
+        def dfs(current, path):
+            path.append(current)
+            if current == end:
+                all_paths.append(list(path))
+            else:
+                for neighbor in graph[current]:
+                    if neighbor not in path:
+                        dfs(neighbor, path)
+            path.pop()
+
+        all_paths = []
+        dfs(start, [])
+        return all_paths
+
+    class hapobject:
+        """
+        A haplotype block object
+        """
+        def __init__(self, id, start, end, genomes):
+            self.id = id
+            self.start = start
+            self.end = end
+            self.genomes = genomes
+        # END
+
+        def hasgen(self, gen):
+            return gen in self.genomes
+        # END
+    # END
+
+    cwd = '/home/ra98jam/d16/projects/potato_hap_example/results/kmer_analysis/'
+    emoutfin = "/home/ra98jam/d16/test/WhiteRose_results_2024_06_14/EM_results/EM.v03.WhR.w0.results.tsv"
+    hapfin = "../data/haplotype_graph_2024_06_14.txt"
+
+    hapoblist = deque()
+    with open(hapfin, 'r') as fin:
+        for line in fin:
+            line = line.strip().split()
+            hapoblist.append(hapobject(int(line[3]), int(line[0]), int(line[1]), sorted(line[2].split(','))))
+
+    # Create a Graph object for the haplotype blocks and use it to determine the Y-coordinate for visualisation of the blocks
+    G = ig.Graph()
+    G = ig.Graph.as_directed(G)
+    G.add_vertices(range(len(hapoblist)))
+    addededge = set()
+    startnodes = deque()
+    for hap in samples:
+        hc = -1
+        for h in hapoblist:
+            if h.hasgen(hap):
+                if hc == -1:
+                    hc = h.id
+                    startnodes.append(h.id)
+                    continue
+                if (hc, h.id) not in addededge:
+                    G.add_edge(hc, h.id)
+                    addededge.add((hc, h.id))
+                hc = h.id
+
+    # Add ploidy levels in the graph
+    ploidy = deque()
+    emout = pd.read_csv(emoutfin, header=None, sep='\t')
+    def get_ploidy(row):
+        print(row[9:])
+        if all([r == 0 for r in row[9:]]):
+            return 0
+        return row[9:].to_list().index(max(row[9:]))
+    # END
+
+    ploidy = emout.apply(get_ploidy, axis=1)
+    G.vs['ploidy'] = ploidy
+
+    to_del = [e for e in G.get_edgelist() if G.vs[e[0]]['ploidy'] != G.vs[e[1]]['ploidy']]
+    G.delete_edges(to_del)
+
+    G.delete_vertices([i for i, p in enumerate(ploidy) if p == 0])
+    fig, ax = plt.subplots()
+    ig.plot(T, target=ax, layout='davidson_harel', vertex_label=T.vs["name"], edge_width=np.log1p(T.es['weight']), vertex_size=0.2)
+    ig.plot(G, target='tmp.pdf', layout='kk', vertex_size=4, vertex_color='red', edge_width=0, edge_arrow_size=0.2)
+
+# END
 
 # <editor-fold desc="OBSOLETE FUNCTIONS">
 
