@@ -19,7 +19,7 @@ def cleanax(ax):
 # END
 
 
-def bezierlink(p1, p2, z):
+def bezierlink(p1, p2):
     import matplotlib.patches as patches
     from matplotlib.path import Path
 
@@ -42,7 +42,7 @@ def bezierlink(p1, p2, z):
         Path.CURVE4,
     ]
     path = Path(verts, codes)
-    patch = patches.PathPatch(path, facecolor="none", zorder=z)
+    patch = patches.PathPatch(path, facecolor="none")
     return patch
 # END
 # </editor-fold>
@@ -259,9 +259,11 @@ def plot_haplotype_graph(args):
         for start in sorted(set(G.vs['start'])):
             chaps = [(h.id, h.genomes) for h in hapoblist if h.start == start]
             pcoll = deque()
-            pcollcol = deque()
-            pcolllwd = deque()
-            pcollzord = deque()
+            pcoll2 = deque()
+
+            # pcollcol = deque()
+            # pcolllwd = deque()
+            # pcollzord = deque()
             # kcoll = deque()
             # print(chaps)
             for c in chaps:
@@ -271,18 +273,22 @@ def plot_haplotype_graph(args):
                 for ssi in ss:
                     p1 = (hapoblist[c[0]].end - offset, yh)
                     p2 = (hapoblist[ssi].start + offset, G.vs[ssi]['height'])
-                    z = 0 if (c[0], ssi) not in tedges else 1
-                    pcoll.append(bezierlink(p1, p2, z))
                     if (c[0], ssi) not in tedges:
-                    # if (G.vs[c[0]]['threadid'] != G.vs[ssi]['threadid']) or (G.vs[c[0]]['threadid'] == -1)  or (G.vs[ssi]['threadid'] == -1):
-                        pcollcol.append('lightgrey')
-                        pcolllwd.append(0.4)
-                        pcollzord.append(0)
+                        pcoll.append(bezierlink(p1, p2))
                     else:
-                        # pcollcol.append(ploidy_color[G.vs[c[0]]['ploidy']])
-                        pcollcol.append(ploidy_color[1])
-                        pcolllwd.append(1.5)
-                        pcollzord.append(1)
+                        pcoll2.append(bezierlink(p1, p2))
+                    # # if (G.vs[c[0]]['threadid'] != G.vs[ssi]['threadid']) or (G.vs[c[0]]['threadid'] == -1)  or (G.vs[ssi]['threadid'] == -1):
+                    #     pcollcol.append('lightgrey')
+                    #     pcolllwd.append(0.4)
+                    #     pcollzord.append(0)
+                    # else:
+                    #     # pcollcol.append(ploidy_color[G.vs[c[0]]['ploidy']])
+                    #     pcollcol.append(ploidy_color[1])
+                    #     pcolllwd.append(1.5)
+                    #     pcollzord.append(1)
+                    #
+                    # z = 0 if (c[0], ssi) not in tedges else 4
+                    # pcoll.append(bezierlink(p1, p2, z))
 
                 # # Get kmer-proportion
                 # nodestat = nkstats.loc[nkstats[0] == c[0]]
@@ -325,7 +331,9 @@ def plot_haplotype_graph(args):
                 #         continue
 
             # p = PatchCollection(list(pcoll), facecolors='none', edgecolors='grey', linewidths=0.2)
-            p = PatchCollection(list(pcoll), facecolors='none', edgecolors=pcollcol, linewidths=pcolllwd)
+            p = PatchCollection(list(pcoll), facecolors='none', edgecolors='lightgrey', linewidths=0.2)
+            ax.add_collection(p)
+            p = PatchCollection(list(pcoll2), facecolors='none', edgecolors=ploidy_color[1], linewidths=1.5, alpha=0.5)
             ax.add_collection(p)
         return ax
     # END
