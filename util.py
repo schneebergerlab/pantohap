@@ -1,5 +1,6 @@
 # <editor-fold desc='Define imports'>
 import gzip
+import logging
 import string
 from collections import defaultdict, deque
 from itertools import product
@@ -46,16 +47,16 @@ def editdist(iter1, iter2):
 # END
 
 
-def getsamplestates(sid, pwd, snpdf):
-    print(sid)
+def getsamplestates(sid, pwd, snpdf, c):
+    print(c, sid)
     # TODO: Update input file name
-    hdf = pd.read_table(f'{pwd}/dm_{sid[0]}_chr02_hap{sid[1]}syri.out.bed.snp_anno.txt', header=None, low_memory=False)
+    hdf = pd.read_table(f'{pwd}/dm_{sid[0]}_{c}_hap{sid[1]}syri.out.bed.snp_anno.txt', header=None, low_memory=False)
     # hdf = pd.read_table(f'{pwd}/dm_{sid[0]}_chr02_hap{sid[1]}.with_Otava.syri.out.bed.snp_anno.txt', header=None, low_memory=False)
     hdf = hdf.loc[hdf[6] != 'SNP']
     hdf.sort_values([1, 2], inplace=True)
     state = deque()
-    colindex = [i for i, c in enumerate(snpdf.columns) if c == sid][0]
-    for row in tqdm(snpdf.itertuples()):
+    colindex = [i for i, cl in enumerate(snpdf.columns) if cl == sid][0]
+    for row in snpdf.itertuples():
         # Condition 0: Syntenic SNP already found
         if row[colindex + 1] == 1:
             state.append(1)
@@ -75,9 +76,12 @@ def getsamplestates(sid, pwd, snpdf):
 # END
 
 
-def updatesnpgenotypes():
+def updatesnpgenotypes(pwd, c, nproc):
     from tqdm import tqdm
     from itertools import product
+    import os
+    import socket
+    import string
 
     """
         # SNP_type - Genotype
@@ -87,53 +91,33 @@ def updatesnpgenotypes():
         # Deleted                           -           3
         # In TDs (considered as deletion)   -           3
     """
+    # chrs = ["chr{:02d}".format(i) for i in range(1, 13)]
+    # for c in chrs:
+    #     if socket.gethostname() == 'LMBIDP1-LXSCH01':
+    #         # Indir for local compute
+    #         pwd = f'/home/ra98jam/d16/projects/potato_hap_example/data/{c}/'
+    #     else:
+    #         # Indir for cluster compute
+    #         pwd = f'/dss/dsslegfs01/pn29fi/pn29fi-dss-0016/projects/potato_hap_example/data/{c}/'
 
-    # Get the syri annotations at the identified SNP marker positions
-    """ SH
-    # Without Otava
-    fname=dm_all_sample_chr2.syri.nosr.snps.merged.vcf.regions_for_tabix.txt
-    awk 'NR>1 { print $1"\t"$2-1"\t"$2+1}' dm_all_sample_chr2.syri.nosr.snps.merged.vcf.txt > $fname
-    for c in {A..J}; do
-        for h in {5..8}; do
-            tabix dm_${c}_chr02_hap${h}syri.out.bed.gz -R $fname | sort | uniq > dm_${c}_chr02_hap${h}syri.out.bed.snp_anno.txt &
-        done
-        wait
-    done
-    
-    # With Otava
-    fname=dm_all_sample_chr2.with_Otava.syri.nosr.snps.merged.vcf.regions_for_tabix.txt
-    awk 'NR>1 { print $1"\t"$2-1"\t"$2+1}' dm_all_sample_chr2.with_Otava.syri.nosr.snps.merged.vcf.txt > $fname
-    for c in {A..J} O; do
-        {
-        for h in {5..8}; do
-            tabix dm_${c}_chr02_hap${h}syri.out.bed.gz -R $fname | sort | uniq > dm_${c}_chr02_hap${h}.with_Otava.syri.out.bed.snp_anno.txt
-        done
-        } &
-    done
-    """
-
-    pwd = '/dss/dsslegfs01/pn29fi/pn29fi-dss-0016/projects/potato_hap_example/data'
+    os.chdir(pwd)
     # TODO: Update the input file name
-    snpfin = f"dm_all_sample_chr2.syri.nosr.snps.merged.vcf.txt"
+    snpfin = f'dm_all_sample_{c}.syri.nosr.snps.merged.vcf.txt'
     # snpfin = f"dm_all_sample_chr2.with_Otava.syri.nosr.snps.merged.vcf.txt"
 
-    sids = list(product(string.ascii_uppercase[:10], range(5, 9)))
+    sids = list(product(string.ascii_uppercase[:10], range(1, 5)))
     # sids = list(product(string.ascii_uppercase[:10]+'O', range(5, 9)))
     # Read snpfin
-    snpdf = dict()
-    with open(f'{pwd}/{snpfin}', 'r') as fin:
-        _ = fin.readline()
-        for i, line in tqdm(enumerate(fin)):
-            # if i == 10: break
-            line = line.strip().split()
-            v = np.array([int(i) if i != '.' else 0 for i in line[7:]])
-            if set(v) == set([0]): continue
-            snpdf[tuple(line[:4])] = v
-    snpdf = pd.DataFrame.from_dict(snpdf, orient='index')
+    snpdf = pd.read_table(f'{pwd}/{snpfin}', engine='c')
+    snpdf.drop('QUAL FILTER FORMAT'.split(), axis=1, inplace=True)
+    snpdf.set_index(keys='#CHROM POS REF ALT'.split(), drop=True, inplace=True)
+    snpdf.replace('.', 0, inplace=True)
+    snpdf = snpdf.astype(int)
+    snpdf = snpdf.loc[snpdf.apply(sum, axis=1) != 0]
     snpdf.columns = sids
 
-    with Pool(processes=20) as pool:
-        states = pool.map(partial(getsamplestates, pwd=pwd, snpdf=snpdf), sids)
+    with Pool(processes=int(nproc)) as pool:
+        states = pool.map(partial(getsamplestates, pwd=pwd, snpdf=snpdf, c=c), sids)
 
     snpdf.columns = list(range(len(sids)))
     for i, state in enumerate(states):
@@ -149,7 +133,7 @@ def updatesnpgenotypes():
     snpdfout = pd.concat([anndf, snpdfout], axis=1)
 
     # TODO: Update the output file name
-    snpdfout.to_csv(f'{pwd}/dm_all_sample_chr2.syri.nosr.snps.merged.vcf.del_markers.txt', sep='\t', index=False)
+    snpdfout.to_csv(f'{pwd}/dm_all_sample_{c}.syri.nosr.snps.merged.vcf.del_markers.txt', sep='\t', index=False)
     # snpdfout.to_csv(f'{pwd}/dm_all_sample_chr2.with_Otava.syri.nosr.snps.merged.vcf.del_markers.txt', sep='\t', index=False)
 
     return
@@ -167,6 +151,10 @@ def hapnodesfromvcffile(snpfin):
     from hometools.hometools import extractseq, readfasta_iterator, mapbp
     import string
     import pyranges as pr
+    import socket
+    from multiprocessing import Pool
+    import os
+    from functools import partial
 
     class hapobject:
         """
@@ -183,9 +171,7 @@ def hapnodesfromvcffile(snpfin):
             return gen in self.genomes
         # END
 
-    def getnodes(start):
-        print(start)
-        # end = a[i + 1]
+    def getnodes(start, div):
         end = start + 100000    # Window size
         snps = snpdf.loc[(snpdf.position >= start) & (snpdf.position < end)].copy()
         # snpdf.drop(snps.index, inplace=True)
@@ -200,7 +186,7 @@ def hapnodesfromvcffile(snpfin):
         # Find groups of haps that are very similar (divergence < 10%)
         # dist = [editdist(i.iloc[0], j.iloc[0]) for i, j in product(haplist, haplist)]
         dmat = np.reshape([editdist(i.iloc[0], j.iloc[0]) for i, j in product(haplist, haplist)], [nhap, nhap])
-        conn = (dmat / haplist[0].shape[1]) < 0.10
+        conn = (dmat / haplist[0].shape[1]) < div
         conn = np.triu(conn, 1)
         g = ig.Graph.Adjacency(conn)
         hapgrp = g.connected_components(mode='weak')
@@ -215,143 +201,130 @@ def hapnodesfromvcffile(snpfin):
         return [start, end] + hapsample
     # END
 
-    # snpfin = f"/dss/dsslegfs01/pn29fi/pn29fi-dss-0016/projects/potato_hap_example/data/dm_all_sample_chr2.syri.nosr.snps.merged.vcf.txt"
-    pwd = '/dss/dsslegfs01/pn29fi/pn29fi-dss-0016/projects/potato_hap_example/data'
-    pwd = '/home/ra98jam/d16/projects/potato_hap_example/data/'
-    snpfin = 'dm_all_sample_chr2.syri.nosr.snps.merged.vcf.del_markers.txt'
-    snpfin = 'dm_all_sample_chr2.with_Otava.syri.nosr.snps.merged.vcf.del_markers.txt'
+    if socket.gethostname() == 'LMBIDP1-LXSCH01':
+        # PWD for local compute
+        pwd = '/home/ra98jam/d16/projects/potato_hap_example/data/'
+    else:
+        # PWD for cluster compute
+        pwd ='/dss/dsslegfs01/pn29fi/pn29fi-dss-0016/projects/potato_hap_example/data'
 
-    snpdf = pd.read_table(f"{pwd}/{snpfin}")
-    snpdf.columns = 'chr position reference alternate'.split() + list(snpdf.columns[4:])
-    snpdf['dm'] = '.'
-    snpdf.replace('.', 0, inplace=True)
-    snpdf.replace('1', 1, inplace=True)
-    snpdf.replace('2', 2, inplace=True)
-    snpdf.replace('3', 3, inplace=True)
+    # logger.disabled = True
+    chrs = ["chr{:02d}".format(i) for i in range(1, 13)]
+    for c in chrs:
+        print(c, str(datetime.now()))
+        os.chdir(f'{pwd}/{c}')
 
-    a = np.arange(1, chrsize, 100000)
-    a = np.append(a, chrsize)
+        snpfin = f'{os.getcwd()}/dm_all_sample_{c}.syri.nosr.snps.merged.vcf.del_markers.txt'
+        # snpfin = 'dm_all_sample_chr2.with_Otava.syri.nosr.snps.merged.vcf.del_markers.txt'
 
-    with Pool(processes=20) as pool:
-        hapblocks = pool.map(getnodes, a[:-1])
+        snpdf = pd.read_table(f"{snpfin}")
+        snpdf.columns = 'chr position reference alternate'.split() + list(snpdf.columns[4:])
+        snpdf['dm'] = '.'
+        snpdf.replace('.', 0, inplace=True)
+        snpdf.replace('1', 1, inplace=True)
+        snpdf.replace('2', 2, inplace=True)
+        snpdf.replace('3', 3, inplace=True)
 
-    # hapblocks = deque()
-    # for i, start in tqdm(enumerate(a[:-1])):
-    #     end = a[i + 1]
-    #     snps = snpdf.loc[(snpdf.position >= start) & (snpdf.position < end)].copy()
-    #     snpdf.drop(snps.index, inplace=True)
-    #     snpgt = snps.iloc[:, 7:]
-    #     snpgt = snpgt.T
-    #     if snpgt.shape[1] == 0:
-    #         continue
-    #
-    #     haplist = [grp for i, grp in snpgt.groupby(list(snpgt.columns))]
-    #     nhap = len(haplist)
-    #
-    #     # Find groups of haps that are very similar (divergence < 10%)
-    #     dist = [editdist(i.iloc[0], j.iloc[0]) for i, j in product(haplist, haplist)]
-    #     dmat = np.reshape([editdist(i.iloc[0], j.iloc[0]) for i, j in product(haplist, haplist)], [nhap, nhap])
-    #     conn = (dmat / haplist[0].shape[1]) < 0.10
-    #     conn = np.triu(conn, 1)
-    #     g = ig.Graph.Adjacency(conn)
-    #     hapgrp = g.connected_components(mode='weak')
-    #
-    #     # Merge haps that are within the same group
-    #     hapglist = []
-    #     for hg in hapgrp:
-    #         hap = pd.concat([haplist[i] for i in hg])
-    #         hapglist.append(hap)
-    #     nhap = len(hapglist)
-    #     hapsample = [','.join(sorted(h.index.values)) for h in hapglist]
-    #     hapblocks.append([start, end] + hapsample)
+        # Get DM chromosome size
+        chrsize = int(open(f'{os.getcwd()}/DM_{c}.fa.fai').readline().strip().split()[1])
+        a = np.arange(1, chrsize, 100000)
+        a = np.append(a, chrsize)
 
-    # hapoblist = deque()
-    # cnt = 0
-    # for i, h in enumerate(hapblocks):
-    #     for ss in h[2:]:
-    #         ss = sorted(ss.split(','))
-    #         hapoblist.append(hapobject(cnt, h[0], h[1] - 1, ss))
-    #         cnt += 1
-    index = 0
-    # with open(f"{pwd}/haplotype_graph_{str(datetime.now().date()).replace('-', '_')}.txt", 'w') as fout:
-    with open(f"{pwd}/haplotype_graph_with_Otava{str(datetime.now().date()).replace('-', '_')}.txt", 'w') as fout:
-        for hapblock in hapblocks:
-            for hap in hapblock[2:]:
-                fout.write(f'{hapblock[0]}\t{hapblock[1]}\t{hap}\t{index}\n')
-                index += 1
+        div = 0.01
+        with Pool(processes=20) as pool:
+            hapblocks = pool.map(partial(getnodes, div=div), a[:-1])
+
+        index = 0
+        with open(f"{os.getcwd()}/haplotype_graph_{c}_div{div}_{str(datetime.now().date()).replace('-', '_')}.txt", 'w') as fout:
+        # with open(f"{pwd}/haplotype_graph_with_Otava{str(datetime.now().date()).replace('-', '_')}.txt", 'w') as fout:
+            for hapblock in hapblocks:
+                for hap in hapblock[2:]:
+                    fout.write(f'{hapblock[0]}\t{hapblock[1]}\t{hap}\t{index}\n')
+                    index += 1
 
     return
 # END
 
 
-def get_sequence(sample, pwd, a):
-        print(sample)
-        g, h = sample.split('_hap')
-        # get syn regions
-        synr = pd.read_csv(f'{pwd}/dm_{g}_chr02_hap{h}syri.out', header=None, sep='\t')
-        synr = synr.loc[synr[10] == 'SYNAL']
-        synr[[1, 2, 6, 7]] = synr[[1, 2, 6, 7]].astype(int)
-        synd = dict()
-        for i in a:
-            sinr = synr.loc[(synr[1] < (i+100000)) & (synr[2] > i)]
-            if sinr.shape[0] > 0:
-                pr1 = pr.from_dict({"Chromosome": ["chr02"],
-                                    "Start": [i],
-                                    "End": [i+100000]})
-                pr2 = pr.from_dict({"Chromosome": ["chr02"]*sinr.shape[0],
-                                    "Start": sinr[1],
-                                    "End": sinr[2],
-                                    "query": sinr[[6, 7]].values.tolist()})
-                synd[i] = pr2.intersect(pr1)
-        (chrom, seq) = next(readfasta_iterator(open(f'{pwd}/{g}_chr02_hap{h}.fa', 'r')))
-        TOBREAK = False
-        for i, r in synd.items():
-            with open(f'{pwd}/synfastas/syn_fasta_{sample}_bin_{i}.fasta', 'w') as fout:
-                for c in r.df.itertuples(index=False):
-                    # Get query start position
-                    if c.Start != i:
-                        qs = c[3][0]
-                    else:
-                        # Get the exact matching position when the reference alignment was (potentially) trimmed at the start of the window
-                        mappos = mapbp(sfin=f'{pwd}/dm_{g}_chr02_hap{h}syri.out.bed.gz', mapfin=f'{pwd}/dm_{g}_chr02_hap{h}.bam', d=True, posstr=f'chr02:{i}-{i}')
-                        mappos = list(map(lambda x: int(x.split(':')[1].split('-')[0]) if '+' in x else None, mappos))
-                        mappos = [x for x in mappos if x is not None]
-                        # If more than 1 mapping position was identified, then select the position that is within the selected alignment
-                        if len(mappos) > 1:
-                            mapfit = list(map(lambda x: c[3][0] < x < c[3][1], mappos))
-                            if mapfit.count(True) == 1:
-                                qs = mappos[mapfit.index(True)]
-                            else:
-                                print('Breaking qs')
-                                TOBREAK = True
-                                break
-                        else:
-                            qs = mappos[0]
+def get_sequence(sample, indir, pwd, a, chrom):
+    from pathlib import Path
+    print(sample)
+    Path(f'{pwd}/{sample}/synfastas').mkdir(parents=True, exist_ok=True)
+    os.chdir(f'{pwd}/{sample}/synfastas')
 
-                    # Get query end position
-                    if c.End != i+100000:
-                        qe = c[3][1]
-                    else:
-                        # Get the exact matching position when the reference alignment was (potentially) trimmed at the end of the window
-                        mappos = mapbp(sfin=f'{pwd}/dm_{g}_chr02_hap{h}syri.out.bed.gz', mapfin=f'{pwd}/dm_{g}_chr02_hap{h}.bam', d=True, posstr=f'chr02:{i+100000}-{i+100000}')
-                        mappos = list(map(lambda x: int(x.split(':')[1].split('-')[0]) if '+' in x else None, mappos))
-                        mappos = [x for x in mappos if x is not None]
-                        # If more than 1 mapping position was identified, then select the position that is within the selected alignment
-                        if len(mappos) > 1:
-                            mapfit = list(map(lambda x: c[3][0] < x < c[3][1], mappos))
-                            if mapfit.count(True) == 1:
-                                qe = mappos[mapfit.index(True)]
-                                # print(c, mappos, qe)
-                            else:
-                                print('Breaking qe')
-                                TOBREAK = True
-                                break
+    g, h = sample.split('_hap')
+    # get syn regions
+    synr = pd.read_csv(f'{indir}/dm_{g}_{chrom}_hap{h}syri.out', header=None, sep='\t')
+    synr = synr.loc[synr[10] == 'SYNAL']
+    synr[[1, 2, 6, 7]] = synr[[1, 2, 6, 7]].astype(int)
+    synd = dict()
+    for i in a:
+        sinr = synr.loc[(synr[1] < (i+100000)) & (synr[2] > i)]
+        if sinr.shape[0] > 0:
+            pr1 = pr.from_dict({"Chromosome": [chrom],
+                                "Start": [i],
+                                "End": [i+100000]})
+            pr2 = pr.from_dict({"Chromosome": [chrom]*sinr.shape[0],
+                                "Start": sinr[1],
+                                "End": sinr[2],
+                                "query": sinr[[6, 7]].values.tolist()})
+            synd[i] = pr2.intersect(pr1)
+    (_, seq) = next(readfasta_iterator(open(f'{indir}/{g}_{chrom}_hap{h}.fa', 'r')))
+    TOBREAK = False
+
+    for i, r in synd.items():
+        with open(f'syn_fasta_{sample}_bin_{i}.fasta', 'w') as fout:
+            for c in r.df.itertuples(index=False):
+                # Get query start position
+                if c.Start != i:
+                    qs = c[3][0]
+                else:
+                    # Get the exact matching position when the reference alignment was (potentially) trimmed at the start of the window
+                    mappos = mapbp(sfin=f'{indir}/dm_{g}_{chrom}_hap{h}syri.out.bed.gz', mapfin=f'{indir}/dm_{g}_{chrom}_hap{h}.bam', d=True, posstr=f'{chrom}:{i}-{i}')
+                    mappos = list(map(lambda x: int(x.split(':')[1].split('-')[0]) if '+' in x else None, mappos))
+                    mappos = [x for x in mappos if x is not None]
+                    # If more than 1 mapping position was identified, then select the position that is within the selected alignment
+                    if len(mappos) > 1:
+                        mapfit = list(map(lambda x: c[3][0] < x < c[3][1], mappos))
+                        if mapfit.count(True) == 1:
+                            qs = mappos[mapfit.index(True)]
                         else:
-                            qe = mappos[0]
-                    fout.write(f'>chr02_{g}_hap{h}_r_{c[1]}_{c[2]}_q_{qs}_{qe}\n')
-                    fout.write(seq[(qs-1):qe] + '\n')
-                if TOBREAK:
-                    break
+                            print('Breaking qs')
+                            TOBREAK = True
+                            break
+                    else:
+                        try:
+                            qs = mappos[0]
+                        except IndexError as e:
+                            raise IndexError(f'{e} {sample} {pwd} {c} {chrom}')
+
+
+                # Get query end position
+                if c.End != i+100000:
+                    qe = c[3][1]
+                else:
+                    # Get the exact matching position when the reference alignment was (potentially) trimmed at the end of the window
+                    mappos = mapbp(sfin=f'{indir}/dm_{g}_{chrom}_hap{h}syri.out.bed.gz', mapfin=f'{indir}/dm_{g}_{chrom}_hap{h}.bam', d=True, posstr=f'{chrom}:{i+100000}-{i+100000}')
+                    mappos = list(map(lambda x: int(x.split(':')[1].split('-')[0]) if '+' in x else None, mappos))
+                    mappos = [x for x in mappos if x is not None]
+                    # If more than 1 mapping position was identified, then select the position that is within the selected alignment
+                    if len(mappos) > 1:
+                        mapfit = list(map(lambda x: c[3][0] < x < c[3][1], mappos))
+                        if mapfit.count(True) == 1:
+                            qe = mappos[mapfit.index(True)]
+                            # print(c, mappos, qe)
+                        else:
+                            print('Breaking qe')
+                            TOBREAK = True
+                            break
+                    else:
+                        qe = mappos[0]
+                fout.write(f'>{chrom}_{g}_hap{h}_r_{c[1]}_{c[2]}_q_{qs}_{qe}\n')
+                fout.write(seq[(qs-1):qe] + '\n')
+            if TOBREAK:
+                break
+    return
+# END
 
 
 def get_node_query_sequence():
@@ -359,8 +332,10 @@ def get_node_query_sequence():
     Get query sequence fasta file corresponding to 100kb windows in the reference genome
     :return:
     """
+    import os
     import pandas as pd
     import numpy as np
+    from datetime import datetime
     from collections import deque
     from itertools import product
     from tqdm import tqdm
@@ -370,16 +345,34 @@ def get_node_query_sequence():
     import pyranges as pr
     from multiprocessing import Pool
     from functools import partial
+    import socket
+    from hometools.hometools import logger
 
 
+    # samples = ['dm'] + [f'{i}_hap{j}' for i, j in product(string.ascii_uppercase[:10], range(5, 9))]
+    samples = ['dm'] + [f'{i}_hap{j}' for i, j in product(string.ascii_uppercase[:10], range(1, 5))]
+    if socket.gethostname() == 'LMBIDP1-LXSCH01':
+        # Indir for local compute
+        pwd = '/home/ra98jam/d16/projects/potato_hap_example/results/kmer_analysis/node_kmers/'
+        indir = '/home/ra98jam/d16/projects/potato_hap_example/data/'
+    else:
+        # Indir for cluster compute
+        pwd = '/dss/dsslegfs01/pn29fi/pn29fi-dss-0016/projects/potato_hap_example/results/kmer_analysis/node_kmers/'
+        indir='/dss/dsslegfs01/pn29fi/pn29fi-dss-0016/projects/potato_hap_example/data'
 
-    chrsize = 46102915
-    samples = ['dm'] + [f'{i}_hap{j}' for i, j in product(string.ascii_uppercase[:10], range(5, 9))]
-    pwd = '/home/ra98jam/d16/projects/potato_hap_example/data/'
-    a = np.arange(1, chrsize, 100000)
-    a = np.append(a, chrsize)
-    with Pool(processes=10) as pool:
-        pool.map(partial(get_sequence, pwd=pwd, a=a), samples[1:])
+    logger.disabled = True
+    chrs = ["chr{:02d}".format(i) for i in range(1, 13)]
+    for c in chrs:
+        print(c, str(datetime.now()))
+        os.chdir(f'{pwd}/{c}')
+        # print(os.getcwd())
+        with open(f'{indir}/{c}/DM_{c}.fa.fai', 'r') as f:
+            chrsize = int(f.readline().strip().split()[1])
+        a = np.arange(1, chrsize, 100000)
+        a = np.append(a, chrsize)
+        with Pool(processes=20) as pool:
+            pool.map(partial(get_sequence, indir=f'{indir}/{c}', pwd=f'{pwd}/{c}', a=a, chrom=c), samples[1:])
+            # pool.map(partial(get_sequence, indir=f'{indir}/{c}', pwd=f'{pwd}/{c}', a=a, chrom=c), ['B_hap1'])
     return
 
     #
@@ -458,7 +451,7 @@ def get_node_query_sequence():
 # END
 
 
-def get_unique_kmers_per_node(k, cwd):
+def get_unique_kmers_per_node(c, hgf, k):
     """
     Read the haplotype graph and:
     1) Get set of kmers for each node
@@ -466,10 +459,12 @@ def get_unique_kmers_per_node(k, cwd):
     3) Save the unique kmers for each node
     :return:
     """
+    import os
     from datetime import datetime
+    import socket
     getdate = lambda: str(datetime.now().date()).replace('-', '_')
 
-    def gethapmers(row):
+    def gethapmers(cwd, row):
         b = row[0]
         haps = row[2].split(',')
         kmers = set()
@@ -478,7 +473,7 @@ def get_unique_kmers_per_node(k, cwd):
             c = h.split('_')[0]
             i = int(h.split('hap')[1])
             try:
-                with open(f'{cwd}/kmer_size_{k}/{c}_hap{i-4}/syn_fasta_{c}_hap{i}_bin_{b}.k{k}.good.txt', 'r') as f:
+                with open(f'{cwd}/{c}_hap{i}/kmer_size_{k}/syn_fasta_{c}_hap{i}_bin_{b}.k{k}.good.txt', 'r') as f:
                     hkmers = set([l.strip().split()[0] for l in f])
                 kmers.update(hkmers)
             except FileNotFoundError:
@@ -492,27 +487,46 @@ def get_unique_kmers_per_node(k, cwd):
             kmers.update(gethapmers(row))
         return kmers
 
-    # hapdf = pd.read_table('/dss/dsslegfs01/pn29fi/pn29fi-dss-0016/projects/potato_hap_example/data/haplotype_graph.txt', header=None)
-    hapdf = pd.read_table(f'{cwd}../../data/haplotype_graph_2024_06_14.txt', header=None)
+
+    if socket.gethostname() == 'LMBIDP1-LXSCH01':
+        # Indir for local compute
+        pwd = '/home/ra98jam/d16/projects/potato_hap_example/results/kmer_analysis/node_kmers/'
+        indir = '/home/ra98jam/d16/projects/potato_hap_example/data/'
+    else:
+        # Indir for cluster compute
+        pwd = '/dss/dsslegfs01/pn29fi/pn29fi-dss-0016/projects/potato_hap_example/results/kmer_analysis/node_kmers/'
+        indir='/dss/dsslegfs01/pn29fi/pn29fi-dss-0016/projects/potato_hap_example/data/'
+
+
+    # chrs = ["chr{:02d}".format(i) for i in range(1, 13)]
+    # for c in chrs:
+    print(c, str(datetime.now()))
+    os.chdir(f'{pwd}/{c}')
+    hgfc = hgf.format(c=c)
+
+    unifin = f'{pwd}/{c}/uninodekmers_k{k}_{getdate()}_{hgfc.rsplit(".", maxsplit=1)[0]}.txt'
+    nkfin = f'{pwd}/{c}/nodekmers_k{k}_{getdate()}_{hgfc.rsplit(".", maxsplit=1)[0]}.txt'
+
 
     # <editor-fold desc="Find kmers that are unique in each node: Get kmers that are present in a single node in the graph">
     unikmers = set()
     badkmers = set()
-    i = 1
+    hapdf = pd.read_table(f'{indir}/{c}/{hgfc}', header=None)
     for row in tqdm(hapdf.itertuples(index=False)):
-        kmers = gethapmers(row)
+        kmers = gethapmers(f'{pwd}/{c}', row)
         kmers.difference_update(badkmers)
         badkmers.update(kmers.intersection(unikmers))
         unikmers.symmetric_difference_update(kmers)
 
-    with open(f'{cwd}/kmer_size_{k}/uninodekmers_{getdate()}.txt', 'w') as fout:
+
+    with open(unifin, 'w') as fout:
         fout.write('\n'.join(unikmers))
 
     # Get kmers that are unique in each node and save them
-    unikmers = set([l.strip() for l in open(f'{cwd}/kmer_size_{k}/uninodekmers_{getdate()}.txt', 'r')])
-    with open(f'{cwd}/kmer_size_{k}/nodekmers_{getdate()}.txt', 'w') as fout:
+    unikmers = set([l.strip() for l in open(unifin, 'r')])
+    with open(nkfin, 'w') as fout:
         for row in tqdm(hapdf.itertuples(index=False)):
-            kmers = gethapmers(row)
+            kmers = gethapmers(f'{pwd}/{c}', row)
             kmers.intersection_update(unikmers)
             unikmers.difference_update(kmers)
             if len(kmers) > 0:
@@ -520,30 +534,31 @@ def get_unique_kmers_per_node(k, cwd):
     # </editor-fold>
 
     # <editor-fold desc="Find kmers that are unique in to each window (but might be shared between nodes): Get kmers that are present in a single window in the graph">
-
-    unikmers = set()
-    badkmers = set()
-    i = 1
-    for grp in tqdm(hapdf.groupby(0)):
-        kmers = getwinmers(grp)
-        kmers.difference_update(badkmers)
-        badkmers.update(kmers.intersection(unikmers))
-        unikmers.symmetric_difference_update(kmers)
-
-    with open(f'{cwd}/kmer_size_{k}/uniwinkmers_{getdate()}.txt', 'w') as fout:
-        fout.write('\n'.join(unikmers))
-
-    # Get kmers that are unique in each node and save them
-    unikmers = set([l.strip() for l in open(f'{cwd}/kmer_size_{k}/uniwinkmers_{getdate()}.txt')])
-    with open(f'{cwd}/kmer_size_{k}/winkmers_{getdate()}.txt', 'w') as fout:
-        for grp in tqdm(hapdf.groupby(0)):
-            winkmers = getwinmers(grp)
-            for row in grp[1].itertuples(index=False):
-                kmers = gethapmers(row)
-                kmers.intersection_update(unikmers)
-                if len(kmers) > 0:
-                    fout.write("\n".join([f'{row[3]}\t{k}' for k in kmers]) + "\n")
-            unikmers.difference_update(winkmers)
+    # TODO: update it to work for all chromosomes
+    #
+    # unikmers = set()
+    # badkmers = set()
+    # i = 1
+    # for grp in tqdm(hapdf.groupby(0)):
+    #     kmers = getwinmers(grp)
+    #     kmers.difference_update(badkmers)
+    #     badkmers.update(kmers.intersection(unikmers))
+    #     unikmers.symmetric_difference_update(kmers)
+    #
+    # with open(f'{cwd}/kmer_size_{k}/uniwinkmers_{getdate()}.txt', 'w') as fout:
+    #     fout.write('\n'.join(unikmers))
+    #
+    # # Get kmers that are unique in each node and save them
+    # unikmers = set([l.strip() for l in open(f'{cwd}/kmer_size_{k}/uniwinkmers_{getdate()}.txt')])
+    # with open(f'{cwd}/kmer_size_{k}/winkmers_{getdate()}.txt', 'w') as fout:
+    #     for grp in tqdm(hapdf.groupby(0)):
+    #         winkmers = getwinmers(grp)
+    #         for row in grp[1].itertuples(index=False):
+    #             kmers = gethapmers(row)
+    #             kmers.intersection_update(unikmers)
+    #             if len(kmers) > 0:
+    #                 fout.write("\n".join([f'{row[3]}\t{k}' for k in kmers]) + "\n")
+    #         unikmers.difference_update(winkmers)
     # </editor-fold>
     return
 # END
@@ -658,6 +673,54 @@ def get_threads():
     ig.plot(G, target='tmp.pdf', layout='kk', vertex_size=np.array(G.degree())+4, vertex_color=G.vs['cor'], vertex_frame_color="black", vertex_frame_width=0,  edge_width=0.1, edge_arrow_size=0.2, bbox=[800, 800])
 # END
 
+
+def archive_graphs_kmers():
+    import socket
+    import os
+    import tarfile
+    from multiprocessing import Pool
+
+    if socket.gethostname() == 'LMBIDP1-LXSCH01':
+        # Indir for local compute
+        indir = '/home/ra98jam/d16/projects/potato_hap_example/data/'
+        pwd = '/home/ra98jam/d16/projects/potato_hap_example/results/kmer_analysis/node_kmers/'
+    else:
+        # Indir for cluster compute
+        indir='/dss/dsslegfs01/pn29fi/pn29fi-dss-0016/projects/potato_hap_example/data/'
+        pwd = '/dss/dsslegfs01/pn29fi/pn29fi-dss-0016/projects/potato_hap_example/results/kmer_analysis/node_kmers/'
+
+    os.chdir(pwd)
+    def generate_tar(tfin, hgraph, nkmers):
+        with tarfile.open(tfin, mode='w:gz') as tar:
+            tar.add(hgraph, arcname=os.path.basename(hgraph))
+            tar.add(nkmers, arcname=os.path.basename(nkmers))
+        return
+    # END
+
+    chrs = ["chr{:02d}".format(i) for i in range(1, 13)]
+    fins = [
+        (f'{c}_div{d}.tar.gz', f'{indir}/{c}/haplotype_graph_{c}_div{d}_2024_08_02.txt', f'{pwd}/{c}/nodekmers_k51_2024_08_07_haplotype_graph_{c}_div{d}_2024_08_02.txt')
+        for c in chrs for d in [0.01, 0.05, 0.1]
+    ]
+    with Pool(processes=12) as pool:
+        pool.starmap(generate_tar, fins)
+
+    for c in chrs:
+        for d in [0.01, 0.05, 0.1]:
+            hgraph = f'{indir}/{c}/haplotype_graph_{c}_div{d}_2024_08_02.txt'
+            nkmers = f'{pwd}/{c}/nodekmers_k51_2024_08_07_haplotype_graph_{c}_div{d}_2024_08_02.txt'
+            tfin = f'{c}_div{d}.tar.gz'
+            break
+        break
+
+
+
+
+
+
+
+    return
+# END
 # <editor-fold desc="OBSOLETE FUNCTIONS">
 
 def count_kmers_from_samples(samplekmersfin):

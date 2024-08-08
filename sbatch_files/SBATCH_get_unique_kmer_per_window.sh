@@ -9,20 +9,27 @@
 #SBATCH --time=12:00:00
 #SBATCH -J get_unique_kmers
 
-cwd=/dss/dsslegfs01/pn29fi/pn29fi-dss-0016/projects/potato_hap_example/results/kmer_analysis/
+cwd=/dss/dsslegfs01/pn29fi/pn29fi-dss-0016/projects/potato_hap_example/results/kmer_analysis/node_kmers/
 chars=({A..J})
 
 #c=${chars[$((SLURM_ARRAY_TASK_ID/4))]}
 #i=${is[$((SLURM_ARRAY_TASK_ID%4))]}
 
-for i in 5 6 7 8; do
+for i in 1 2 3 4; do
   {
-  for k in 21 31 41 51; do
-    cd $cwd; cd kmer_size_${k}; cd ${chars[${SLURM_ARRAY_TASK_ID}]}_hap$((i-4))
+#  for k in 21 31 41 51; do
+  for k in 51; do
+    cd $cwd; cd chr${chrid}; cd ${chars[${SLURM_ARRAY_TASK_ID}]}_hap${i}
+    mkdir -p kmer_size_${k} ; cd kmer_size_${k}
 
     srun --exclusive --ntasks 1 --cpus-per-task ${SLURM_CPUS_PER_TASK} --mem-per-cpu=${SLURM_MEM_PER_CPU} \
 	    /dss/dsslegfs01/pn29fi/pn29fi-dss-0016/projects/potato_hap_example/tool/get_unique_kmer_per_window.sh \
-      ${chars[${SLURM_ARRAY_TASK_ID}]} $i $k ${SLURM_CPUS_PER_TASK} 5 # threads and mem also parsed
+      ${chars[${SLURM_ARRAY_TASK_ID}]} \
+      $chrid \
+      $i \
+      $k \
+      ${SLURM_CPUS_PER_TASK} \
+      5 # threads and mem also parsed
   done
   } &
 done
