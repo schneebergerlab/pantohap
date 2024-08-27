@@ -82,6 +82,22 @@ for c in {01..12}; do
   wait
 done
 
+# Index syri out for only SYN regions. This is used for fetching node_query_sequence
+for c in {01..12}; do
+  cd $cwd; cd chr$c
+  for g in {A..J}; do
+      for h in {1..4}; do
+        {
+#        if [ ! -f dm_${g}_chr${c}_hap${h}syri.out.bed.gz ]; then
+        zgrep 'SYN' dm_${g}_chr${c}_hap${h}syri.out.bed.gz | bgzip > dm_${g}_chr${c}_hap${h}syri.out.syn.bed.gz
+        tabix -fp bed dm_${g}_chr${c}_hap${h}syri.out.syn.bed.gz
+#        fi
+        } &
+      done
+  done
+  wait
+done
+
 #############################################################
 # Step 4: Filter syri.vcf files to get syntenic SNPs in all samples
 #############################################################
