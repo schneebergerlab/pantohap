@@ -1,3 +1,5 @@
+import matplotlib.pyplot as plt
+
 
 def summary_plots_kmers_per_node():
     """
@@ -68,6 +70,112 @@ def summary_plots_kmers_per_node():
     return
 # END
 
+def node_fasta_sequence_stats():
+    from collections import defaultdict, deque
+    import socket
+    import os
+    from datetime import datetime
+    import seaborn as sns
+    from multiprocessing import Pool
+    from itertools import product
+    import string
+    import numpy as np
+    from hometools.hometools import unlist
+    import pandas as pd
+
+    # Set paths
+    if socket.gethostname() == 'LMBIDP1-LXSCH01':
+        # Indir for local compute
+        indir = '/home/ra98jam/d16/projects/potato_hap_example/data/'
+        pwd = '/home/ra98jam/d16/projects/potato_hap_example/results/kmer_analysis/node_kmers/'
+    else:
+        # Indir for cluster compute
+        indir = '/dss/dsslegfs01/pn29fi/pn29fi-dss-0016/projects/potato_hap_example/data/'
+        pwd = '/dss/dsslegfs01/pn29fi/pn29fi-dss-0016/projects/potato_hap_example/results/kmer_analysis/node_kmers/'
+    # set variables
+    chrs = ["chr{:02d}".format(i) for i in range(1, 13)]
+    samples = ['dm'] + [f'{i}_hap{j}' for i, j in product(string.ascii_uppercase[:10], range(1, 5))]  # Without Otava
+    WINDOW_SIZE = 100000
+
+    # Read chromosome lengths
+    chrlengths = deque()
+    for c in chrs:
+        for s in string.ascii_uppercase[:10]:
+            for h in range(1, 5):
+                _, l, _, _, _ = np.loadtxt(f'{indir}/{c}/{s}_{c}_hap{h}.fa.fai', dtype=str)
+                chrlengths.append((c, f'{s}_hap{h}', int(l)))
+    dmlengths = defaultdict()
+    for c in chrs:
+        _, l, _, _, _ = np.loadtxt(f'{indir}/{c}/DM_{c}.fa.fai', dtype=str)
+        dmlengths[c] = int(l)
+
+    # Get length of syntenic regions
+    def get_fasta_len(c):
+        fasta_len = deque()
+        for s in samples[1:3]:
+            print(c, s, str(datetime.now()))
+            windows = np.arange(1, dmlengths[c], WINDOW_SIZE)
+            indir = f'{pwd}/{c}/{s}/synfastas/'
+            for w in windows:
+                f = f"syn_fasta_{s}_bin_{w}.fasta"
+                try:
+                    with open(f'{indir}/{f}', 'r') as fin:
+                        for line in fin:
+                            if line[0] == '>':
+                                line = line.strip().split('_')
+                                fasta_len.append([c, s, w] + [line[4], line[5], line[7], line[8]])
+                except FileNotFoundError:
+                    fasta_len.append([c, s, w] + [0, 0, 0, 0])
+        return fasta_len
+
+    with Pool(processes=12) as pool:
+        fasta_len2 = pool.map(get_fasta_len, chrs)
+
+    tmp = [j for i in fasta_len2 for j in i]
+    fasta_len = tmp
+
+    fasta_len_df = pd.DataFrame(fasta_len)
+    fasta_len_df.columns = 'chromosome sample window dm_start dm_end sample_start sample_end'.split()
+    fasta_len_df['window dm_start dm_end sample_start sample_end'.split()] = fasta_len_df['window dm_start dm_end sample_start sample_end'.split()].astype(int)
+    fasta_len_df.sort_values('chromosome sample window dm_start'.split(), ascending=True, inplace=True)
+    fasta_len_df.to_csv(f'{pwd}/fasta_len_in_nodes.csv', index=False, sep='\t')
+
+    # Get fasta len summary statistics
+    fasta_len_df['dm_len'] = (fasta_len_df['dm_end'] - fasta_len_df['dm_start'] + 1)/WINDOW_SIZE
+    fasta_len_df['sample_len'] = (fasta_len_df['sample_end'] - fasta_len_df['sample_start'] + 1)/WINDOW_SIZE
+    flagg = fasta_len_df.groupby('chromosome sample window'.split()).agg({'dm_len': 'sum', 'sample_len': 'sum'})
+    for c in chrs:
+        pltdf = flagg.loc[(c)]
+        pltdf.reset_index(inplace=True)
+        fig, ax = plt.subplots(figsize=(10, 3))
+        ax = sns.lineplot(pltdf, x='window', y='sample_len', ax=ax)
+        ax = sns.scatterplot(pltdf, x='window', y='sample_len', s=2, ax=ax)
+        ax.set_title(c)
+        ax.set_ylim([-0.1, 1.1])
+        plt.tight_layout()
+        plt.savefig(f'{pwd}/{c}_fasta_len_dist.png')
+        plt.close()
+
+    fasta_len_df['dm_len'] = fasta_len_df['dm_end'] - fasta_len_df['dm_start'] + 1
+    fasta_len_df['sample_len'] = fasta_len_df['sample_end'] - fasta_len_df['sample_start'] + 1
+    flagg2 = fasta_len_df.groupby('chromosome sample'.split()).agg({'dm_len': 'sum', 'sample_len': 'sum'})
+    # flagg2.reset_index(inplace=True)
+    chrldf = pd.DataFrame(chrlengths)
+    chrldf.columns = ['chromosome', 'sample', 'chr_len']
+    chrldf.set_index(['chromosome', 'sample'], inplace=True)
+    flagg2.sample_len = flagg2.sample_len / chrldf.chr_len
+    flagg2.dm_len = flagg2.dm_len / chrldf.chr_len
+    flagg2.reset_index(level=1, inplace=True)
+    flagg2['Genome'] = flagg2['sample'].str.split('_').str[0]
+    flagg2['Haplotype'] = flagg2['sample'].str.split('_').str[1]
+    fig, ax = plt.subplots(figsize=(10, 7))
+    ax = sns.stripplot(flagg2, x='chromosome', y='sample_len', jitter=0.25, hue='Genome', ax=ax)
+    ax.set_ylim([-0.1, 1.1])
+    plt.tight_layout()
+    plt.savefig(f'{pwd}/all_chr_region_covered.png')
+    plt.close()
+    return
+# END
 
 def node_k_stats_plots():
 
