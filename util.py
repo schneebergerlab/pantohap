@@ -270,8 +270,8 @@ def get_sequence(sample, indir, pwd, a, chrom):
                                 "query": sinr[[6, 7]].values.tolist()})
             synd[i] = pr2.intersect(pr1)
     (_, seq) = next(readfasta_iterator(open(f'{indir}/{g}_{chrom}_hap{h}.fa', 'r')))
-    TOBREAK = False
 
+    TOBREAK = False
     for i, r in synd.items():
         with open(f'syn_fasta_{sample}_bin_{i}.fasta', 'w') as fout:
             for c in r.df.itertuples(index=False):
@@ -280,7 +280,7 @@ def get_sequence(sample, indir, pwd, a, chrom):
                     qs = c[3][0]
                 else:
                     # Get the exact matching position when the reference alignment was (potentially) trimmed at the start of the window
-                    mappos = mapbp(sfin=f'{indir}/dm_{g}_{chrom}_hap{h}syri.out.bed.gz', mapfin=f'{indir}/dm_{g}_{chrom}_hap{h}.bam', d=True, posstr=f'{chrom}:{i}-{i}')
+                    mappos = mapbp(sfin=f'{indir}/dm_{g}_{chrom}_hap{h}syri.out.syn.bed.gz', mapfin=f'{indir}/dm_{g}_{chrom}_hap{h}.bam', d=True, posstr=f'{chrom}:{i}-{i}', QUERY_REG=c[3])
                     mappos = list(map(lambda x: int(x.split(':')[1].split('-')[0]) if '+' in x else None, mappos))
                     mappos = [x for x in mappos if x is not None]
                     # If more than 1 mapping position was identified, then select the position that is within the selected alignment
@@ -289,7 +289,7 @@ def get_sequence(sample, indir, pwd, a, chrom):
                         if mapfit.count(True) == 1:
                             qs = mappos[mapfit.index(True)]
                         else:
-                            print('Breaking qs')
+                            print('*****************************\n\n\nBreaking qs\n\n\n\n**************************')
                             TOBREAK = True
                             break
                     else:
@@ -304,7 +304,7 @@ def get_sequence(sample, indir, pwd, a, chrom):
                     qe = c[3][1]
                 else:
                     # Get the exact matching position when the reference alignment was (potentially) trimmed at the end of the window
-                    mappos = mapbp(sfin=f'{indir}/dm_{g}_{chrom}_hap{h}syri.out.bed.gz', mapfin=f'{indir}/dm_{g}_{chrom}_hap{h}.bam', d=True, posstr=f'{chrom}:{i+100000}-{i+100000}')
+                    mappos = mapbp(sfin=f'{indir}/dm_{g}_{chrom}_hap{h}syri.out.syn.bed.gz', mapfin=f'{indir}/dm_{g}_{chrom}_hap{h}.bam', d=True, posstr=f'{chrom}:{i+100000}-{i+100000}',QUERY_REG=c[3])
                     mappos = list(map(lambda x: int(x.split(':')[1].split('-')[0]) if '+' in x else None, mappos))
                     mappos = [x for x in mappos if x is not None]
                     # If more than 1 mapping position was identified, then select the position that is within the selected alignment
@@ -314,7 +314,8 @@ def get_sequence(sample, indir, pwd, a, chrom):
                             qe = mappos[mapfit.index(True)]
                             # print(c, mappos, qe)
                         else:
-                            print('Breaking qe')
+                            # print(c, mappos, mapfit, sep='\n')
+                            print('*****************************\n\n\nBreaking qe\n\n\n******************************')
                             TOBREAK = True
                             break
                     else:
@@ -363,6 +364,7 @@ def get_node_query_sequence():
     logger.disabled = True
     chrs = ["chr{:02d}".format(i) for i in range(1, 13)]
     for c in chrs:
+    # for c in ['chr04']:
         print(c, str(datetime.now()))
         os.chdir(f'{pwd}/{c}')
         # print(os.getcwd())
@@ -370,8 +372,9 @@ def get_node_query_sequence():
             chrsize = int(f.readline().strip().split()[1])
         a = np.arange(1, chrsize, 100000)
         a = np.append(a, chrsize)
-        with Pool(processes=20) as pool:
+        with Pool(processes=40) as pool:
             pool.map(partial(get_sequence, indir=f'{indir}/{c}', pwd=f'{pwd}/{c}', a=a, chrom=c), samples[1:])
+            # pool.map(partial(get_sequence, indir=f'{indir}/{c}', pwd=f'{pwd}/{c}', a=a, chrom=c), ['E_hap4'])
             # pool.map(partial(get_sequence, indir=f'{indir}/{c}', pwd=f'{pwd}/{c}', a=a, chrom=c), ['B_hap1'])
     return
 
@@ -512,7 +515,7 @@ def get_unique_kmers_per_node(c, hgf, k):
     unikmers = set()
     badkmers = set()
     hapdf = pd.read_table(f'{indir}/{c}/{hgfc}', header=None)
-    for row in tqdm(hapdf.itertuples(index=False)):
+    for row in hapdf.itertuples(index=False):
         kmers = gethapmers(f'{pwd}/{c}', row)
         kmers.difference_update(badkmers)
         badkmers.update(kmers.intersection(unikmers))
@@ -525,7 +528,7 @@ def get_unique_kmers_per_node(c, hgf, k):
     # Get kmers that are unique in each node and save them
     unikmers = set([l.strip() for l in open(unifin, 'r')])
     with open(nkfin, 'w') as fout:
-        for row in tqdm(hapdf.itertuples(index=False)):
+        for row in hapdf.itertuples(index=False):
             kmers = gethapmers(f'{pwd}/{c}', row)
             kmers.intersection_update(unikmers)
             unikmers.difference_update(kmers)
@@ -675,6 +678,9 @@ def get_threads():
 
 
 def archive_graphs_kmers():
+    """
+    Create tar.gz files for haplotype graphs and nodekmers for sharing 
+    """
     import socket
     import os
     import tarfile
@@ -696,31 +702,19 @@ def archive_graphs_kmers():
             tar.add(nkmers, arcname=os.path.basename(nkmers))
         return
     # END
-
+    hgdate = '2024_08_02'
+    nkdate = '2024_08_16'
     chrs = ["chr{:02d}".format(i) for i in range(1, 13)]
     fins = [
-        (f'{c}_div{d}.tar.gz', f'{indir}/{c}/haplotype_graph_{c}_div{d}_2024_08_02.txt', f'{pwd}/{c}/nodekmers_k51_2024_08_07_haplotype_graph_{c}_div{d}_2024_08_02.txt')
+            (f'{c}_div{d}.tar.gz', f'{indir}/{c}/haplotype_graph_{c}_div{d}_{hgdate}.txt', f'{pwd}/{c}/nodekmers_k51_{nkdate}_haplotype_graph_{c}_div{d}_{hgdate}.txt')
         for c in chrs for d in [0.01, 0.05, 0.1]
     ]
-    with Pool(processes=12) as pool:
+    with Pool(processes=36) as pool:
         pool.starmap(generate_tar, fins)
-
-    for c in chrs:
-        for d in [0.01, 0.05, 0.1]:
-            hgraph = f'{indir}/{c}/haplotype_graph_{c}_div{d}_2024_08_02.txt'
-            nkmers = f'{pwd}/{c}/nodekmers_k51_2024_08_07_haplotype_graph_{c}_div{d}_2024_08_02.txt'
-            tfin = f'{c}_div{d}.tar.gz'
-            break
-        break
-
-
-
-
-
-
 
     return
 # END
+
 # <editor-fold desc="OBSOLETE FUNCTIONS">
 
 def count_kmers_from_samples(samplekmersfin):
@@ -791,3 +785,7 @@ def count_kmers_from_samples(samplekmersfin):
 
 # </editor-fold>
 
+
+
+
+111
