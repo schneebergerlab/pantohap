@@ -78,14 +78,84 @@ for d in [0.05, 0.01]:
 
 # Run EM to get ploidy levels for each node
 
-# Get a connected paths through the graph
+# Get threads from the graph
+
+# Plot threads
+cwd=/home/ra98jam/d16/projects/potato_hap_example/results/threading/
+indir=/home/ra98jam/d16/projects/potato_hap_example/data/
+
+cd $cwd ; mkdir -p thread_plots
+cd thread_plots
+for c in {01..12}; do
+    for g in WhiteRose Kenva RussetBurbank ; do
+        {
+        for m in bg th; do
+            python /home/ra98jam/d16/projects/potato_hap_example/tool/plot_hap_graph_2.py \
+                ${indir}/chr${c}/haplotype_graph_chr${c}_div0.1_2024_08_02.txt \
+                ../threads_for_Manish_2024_08_28/${g}_chr${c}_div0.1.threads.tsv \
+                ${g}_chr${c}_div0.1.threads.${m}.pdf -W 12 -H 4 --spread 5 --mode ${m}
+            #
+            # python /home/ra98jam/d16/projects/potato_hap_example/tool/plot_hap_graph_2.py \
+            #     ${indir}/chr${c}/haplotype_graph_chr${c}_div0.1_2024_08_02.txt \
+            #     ../threads_plusCentromere_forManish_2024_08_27/${g}_chr${c}_div0.1.threads.tsv \
+            #     ${g}_chr${c}_div0.1.threads.with_centro.${m}.pdf -W 12 -H 4 --spread 5 --mode ${m}
+        done
+        } &
+    done
+done
+
+# Get sample-specific zoomed in view
+c=06
+g=WhiteRose
+python /home/ra98jam/d16/projects/potato_hap_example/tool/plot_hap_graph_2.py \
+    ${indir}/chr${c}/haplotype_graph_chr${c}_div0.1_2024_08_02.txt \
+    ../threads_for_Manish_2024_08_28/${g}_chr${c}_div0.1.threads.tsv \
+    ${g}_chr${c}_div0.1.threads.haps.45_47.5mb.pdf -W 12 -H 4 --spread 5 --mode haps -s 45000000 -e 47500000 \
+    --haplist A_hap1 --haplist A_hap2 --haplist A_hap3 --haplist A_hap4
+
+python /home/ra98jam/d16/projects/potato_hap_example/tool/plot_hap_graph_2.py \
+    ${indir}/chr${c}/haplotype_graph_chr${c}_div0.1_2024_08_02.txt \
+    ../threads_for_Manish_2024_08_28/${g}_chr${c}_div0.1.threads.tsv \
+    ${g}_chr${c}_div0.1.threads.45_47.5mb.pdf -W 12 -H 4 --spread 5 --mode th -s 45000000 -e 47500000
+
+python /home/ra98jam/d16/projects/potato_hap_example/tool/plot_hap_graph_2.py \
+    ${indir}/chr${c}/haplotype_graph_chr${c}_div0.1_2024_08_02.txt \
+    ../threads_for_Manish_2024_08_28/${g}_chr${c}_div0.1.threads.tsv \
+    ${g}_chr${c}_div0.1.threads.haps.45_50mb.pdf -W 12 -H 4 --spread 5 --mode haps -s 45000000 -e 50000000 \
+    --haplist A_hap1 --haplist A_hap2 --haplist A_hap3 --haplist A_hap4
+
+python /home/ra98jam/d16/projects/potato_hap_example/tool/plot_hap_graph_2.py \
+    ${indir}/chr${c}/haplotype_graph_chr${c}_div0.1_2024_08_02.txt \
+    ../threads_for_Manish_2024_08_28/${g}_chr${c}_div0.1.threads.tsv \
+    ${g}_chr${c}_div0.1.threads.45_50mb.pdf -W 12 -H 4 --spread 5 --mode th -s 45000000 -e 50000000
 
 
+# Get pseudo assemblies
+cwd=/dss/dsslegfs01/pn29fi/pn29fi-dss-0016/projects/potato_hap_example/results/threading/thread_fastas/
+cd $cwd
+for c in {01..12}; do
+    for g in WhiteRose Kenva RussetBurbank ; do
+        python ../../../tool/get_fasta_seq_for_thread.py \
+            ../../../data/chr${c}/haplotype_graph_chr${c}_div0.1_2024_08_02.txt \
+            ../threads_forManish_26_08_24/${g}_chr${c}_div0.1.threads.tsv \
+            ../../kmer_analysis/node_kmers/fasta_len_in_nodes.csv \
+            ${g}_chr${c}_div0.1.no_centro.fa chr${c}
+        python ../../../tool/get_fasta_seq_for_thread.py \
+            ../../../data/chr${c}/haplotype_graph_chr${c}_div0.1_2024_08_02.txt \
+            ../threads_plusCentromere_forManish_2024_08_27/${g}_chr${c}_div0.1.threads.tsv \
+            ../../kmer_analysis/node_kmers/fasta_len_in_nodes.csv \
+            ${g}_chr${c}_div0.1.with_centro.fa chr${c}
+    done
+done
+
+# ../../../data/chr10/haplotype_graph_chr10_div0.1_2024_08_02.txt ../threads_forManish_26_08_24/WhiteRose_chr10_div0.1.threads.tsv
+#
+#
+# python /home/ra98jam/d16/projects/potato_hap_example/tool/get_fasta_seq_for_thread.py ../../../data/chr10/haplotype_graph_chr10_div0.1_2024_08_02.txt ../threads_forManish_26_08_24/WhiteRose_chr10_div0.1.threads.tsv ../../kmer_analysis/node_kmers/fasta_len_in_nodes.csv WhiteRose_chr10_div0.1.no_centr0.fa chr10
 
 # Generate summary statistics
 summary_plots_kmers_per_node()
 
-# Reads kmers from a sample of interest and get kmer counts for the nodekmers
 
 
 # </editor-fold>
