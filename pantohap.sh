@@ -59,12 +59,12 @@ for c in {01..12}; do
 done
 
 # Merge Kmers from each collapsed node and then find marker kmers (that are present in that node only) for each node
-from functools import partial
-from multiprocessing import Pool
-cwd = '/dss/dsslegfs01/pn29fi/pn29fi-dss-0016/projects/potato_hap_example/results/kmer_analysis/'
-cwd = '/home/ra98jam/d16/projects/potato_hap_example/results/kmer_analysis/'
-with Pool(processes=4) as pool:
-    pool.map(partial(get_unique_kmers_per_node, cwd=cwd), [21, 31, 41, 51])
+#from functools import partial
+#from multiprocessing import Pool
+#cwd = '/dss/dsslegfs01/pn29fi/pn29fi-dss-0016/projects/potato_hap_example/results/kmer_analysis/'
+#cwd = '/home/ra98jam/d16/projects/potato_hap_example/results/kmer_analysis/'
+#with Pool(processes=4) as pool:
+#    pool.map(partial(get_unique_kmers_per_node, cwd=cwd), [21, 31, 41, 51])
 
 # Haplotype graph filename
 k=51
