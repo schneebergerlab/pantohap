@@ -1,6 +1,7 @@
 from collections import defaultdict
 
 import matplotlib.pyplot as plt
+import numpy as np
 
 
 def summary_plots_kmers_per_node():
@@ -458,10 +459,10 @@ def thread_summary_statistics():
     accdf = accdf.loc[accdf['Sample'] == 'White Rose'].melt(id_vars=['Sample', 'Chromosome', 'Pericentromeres'])
     accdf['type'] = accdf['Pericentromeres'] + accdf['variable']
     type_names = {
-        'excludedWith_inversion': 'No_pericentromeres',
-        'includedWith_inversion': 'All_regions',
-        'excludedWithout_inversion': 'No_pericentromeres,No_inversion',
-        'includedWithout_inversion': 'No_inversions'
+        'excludedWith_inversion': 'Chromosome Arm',
+        'includedWith_inversion': 'Chromosome',
+        'excludedWithout_inversion': 'Chromosome Arm without inversions',
+        'includedWithout_inversion': 'Chromosome without inversions'
     }
     accdf['type'] = [type_names[t] for t in accdf['type']]
 
@@ -486,7 +487,8 @@ def thread_summary_statistics():
 
     # Node calling accuracy
     fig, ax = plt.subplots(figsize=[4, 4])
-    ax = sns.stripplot(data=accdf, x='type', y='value', order='All_regions No_pericentromeres No_inversions No_pericentromeres,No_inversion'.split(), s=3, ax=ax, color='black')
+    ax = sns.boxplot(data=accdf, x='type', y='value', order=['Chromosome', 'Chromosome Arm', 'Chromosome without inversions','Chromosome Arm without inversions'], ax=ax)
+    ax = sns.stripplot(data=accdf, x='type', y='value', order=['Chromosome', 'Chromosome Arm', 'Chromosome without inversions','Chromosome Arm without inversions'], s=3, ax=ax, color='black')
     ax = cleanax(ax)
     ax.set_xlabel('Regions')
     ax.set_ylabel('Accuracy')
@@ -499,7 +501,8 @@ def thread_summary_statistics():
 
     # N50 Statistics
     fig, ax = plt.subplots(figsize=[4, 4])
-    ax = sns.stripplot(data=n50df, x='Sample', y='N50', hue='Pericentromeres', dodge=True, ax=ax, hue_order=['Chromosome','Chromosome Arm'], s=3)
+    ax = sns.boxplot(data=n50df, x='Sample', y='N50', hue='Pericentromeres', dodge=True, ax=ax, hue_order=['Chromosome', 'Chromosome Arm'], fliersize=0)
+    ax = sns.stripplot(data=n50df, x='Sample', y='N50', hue='Pericentromeres', dodge=True, ax=ax, hue_order=['Chromosome', 'Chromosome Arm'], s=3, palette=['black']*2, legend=False)
     ax = cleanax(ax)
     ax.set_xlabel('Genomes')
     ax.set_ylabel('N50 (in MBp)')
@@ -512,7 +515,8 @@ def thread_summary_statistics():
 
     # covdf Statistics
     fig, ax = plt.subplots(figsize=[4, 4])
-    ax = sns.stripplot(data=covdf, x='Sample', y='thread(2+) coverage(%)', hue='Pericentromeres', dodge=True, ax=ax, hue_order=['Chromosome','Chromosome Arm'], s=3)
+    ax = sns.boxplot(data=covdf, x='Sample', y='thread(2+) coverage(%)', hue='Pericentromeres', dodge=True, ax=ax, hue_order=['Chromosome', 'Chromosome Arm'], fliersize=0)
+    ax = sns.stripplot(data=covdf, x='Sample', y='thread(2+) coverage(%)', hue='Pericentromeres', dodge=True, ax=ax, hue_order=['Chromosome', 'Chromosome Arm'], s=3, palette=['black']*2, legend=False)
     ax = cleanax(ax)
     ax.set_xlabel('Genomes')
     ax.set_ylabel('Genome coverage (in %)')
@@ -575,5 +579,4 @@ def thread_summary_statistics():
 
 
 # END
-
 
