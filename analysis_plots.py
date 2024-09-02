@@ -436,8 +436,22 @@ def thread_summary_statistics():
 
     os.chdir('/home/ra98jam/d16/projects/potato_hap_example/results/threading')
 
-    sumdf = pd.read_table('/home/ra98jam/d16/projects/potato_hap_example/results/threading/summary_stats_final/Threading_Summary_Stats_2024_08_24.tsv')
-    sumdf = sumdf[['Sample', 'Pericentromeres', 'Chromosome', 'Thread(2+) Accuracy(%)', 'Thread(2+) Accuracy(%)_noInversions', 'N50','thread(2+) coverage(%)']]
+    # sumdf = pd.read_table('/home/ra98jam/d16/projects/potato_hap_example/results/threading/summary_stats_final/Threading_Summary_Stats_2024_08_24.tsv')
+    sumdf = pd.read_table('/home/ra98jam/d16/projects/potato_hap_example/results/threading/SuppTable_ThreadingSummary-ks_mg.tsv')
+    sumdf = sumdf[['Sample', 'Pericentromeres', 'Chromosome', 'Thread(2+)Nodes Recall', 'Thread(2+)Nodes_noInversions Recall', 'Thread(2+) Accuracy(%)', 'Thread(2+) Accuracy(%)_noInversions',  'N50', 'thread(2+) coverage(%)']]
+
+    recdf = sumdf.loc[sumdf['Sample'] == 'White Rose', ['Sample', 'Pericentromeres', 'Chromosome', 'Thread(2+)Nodes Recall', 'Thread(2+)Nodes_noInversions Recall']]
+    recdf.columns = ['Sample', 'Pericentromeres', 'Chromosome', 'With_inversion', 'Without_inversion']
+    recdf = recdf.loc[recdf['Sample'] == 'White Rose'].melt(id_vars=['Sample', 'Chromosome', 'Pericentromeres'])
+    recdf['type'] = recdf['Pericentromeres'] + recdf['variable']
+    type_names = {
+        'excludedWith_inversion': 'Chromosome Arm',
+        'includedWith_inversion': 'Chromosome',
+        'excludedWithout_inversion': 'Chromosome Arm without inversions',
+        'includedWithout_inversion': 'Chromosome without inversions'
+    }
+    recdf['type'] = [type_names[t] for t in recdf['type']]
+    recdf['value'] = recdf['value'].astype('float')
 
     accdf = sumdf.loc[sumdf['Sample'] == 'White Rose', ['Sample', 'Pericentromeres', 'Chromosome', 'Thread(2+) Accuracy(%)', 'Thread(2+) Accuracy(%)_noInversions']]
     accdf.columns = ['Sample', 'Pericentromeres', 'Chromosome', 'With_inversion', 'Without_inversion']
