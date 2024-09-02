@@ -575,8 +575,77 @@ def thread_summary_statistics():
     plt.tight_layout()
     plt.savefig('all_sample_haplotype_coverage.pdf')
     plt.close()
+# END
+
+
+def russetburbank_alignment_stats():
+    from syri.synsearchFunctions import readPAF
+    from hometools.hometools import mergeRanges
+    import numpy as np
+    from collections import deque
+    import seaborn as sns
+    import pandas as pd
+    from matplotlib import pyplot as plt
+    from hometools.plot import cleanax
+    from hometools.hometools import subranges
+
+    # Read Chromosome lengths
+    faifin = '/home/ra98jam/d16/projects/potato_hap_example/results/threading/thread_fastas/RussetBurbank.genome.fa.fai'
+    chrsize = {}
+    with open(faifin, 'r') as f:
+        for line in f:
+            if 'contig' in line: continue
+            line = line.strip().split()
+            chrsize[line[0]] = int(line[1])
+
+
+    paffin = '/home/ra98jam/d16/projects/potato_hap_example/results/threading/thread_fastas/rb.contigs_to_genome.paf'
+    paf = readPAF(paffin)
+    paf = paf.loc[[True if 'chr' in t else False for t in paf[9]]]
+    region_length = deque()
+    chrnotal = dict()
+    for grp in paf.groupby([9]):
+        df = grp[1].sort_values(by=[0, 1])
+        # printdf(df)
+        garb = np.vstack((df[0], df[1])).T
+        garb2 = mergeRanges(garb)
+        chrnotaligned = subranges(np.array([[1, chrsize[grp[0][0]]]]), garb2)
+        chrnotaligned = np.array([c for c in chrnotaligned])
+        chrnotal[grp[0][0]] = chrnotaligned
+        # view(garb)
+        # view(garb2)
+        region_length.append([
+            grp[0][0],
+            sum(garb2[:, 1] - garb2[:, 0] + 1),
+            sum(chrnotaligned[:, 1] - chrnotaligned[:, 0] + 1)
+        ])
+
+    chrnotal = pd.DataFrame([[k, v1[0]-1, v1[1]] for k, v in chrnotal.items() for v1 in v])
+    chrnotal.to_csv('../results/threading/thread_fastas/Russet_burbank_unmapped_regions.bed', sep='\t', index=False, header=False)
+
+    alignpct = {i[0]: i[1]/(i[1] + i[2]) for i in region_length}
+    alignpct = pd.DataFrame.from_dict(alignpct, orient='index')
+    alignpct.reset_index(inplace=True)
+    alignpct['chr'] = [i[0] for i in alignpct['index'].str.split('_')]
+    alignpct['hap'] = [i[1] for i in alignpct['index'].str.split('_')]
+
+    fig, ax = plt.subplots(figsize=[4, 4])
+    ax = sns.violinplot(data=alignpct, y=0, alpha=0.25)
+    ax = sns.stripplot(data=alignpct, y=0, hue='chr')
+    ax.set_xlabel('Russet Burbank')
+    ax.set_ylabel('Chromosome mapped (in %)')
+    ax.set_ylim(0, 1)
+    ax.legend(bbox_to_anchor=(1.01, 1), ncols=2, loc='upper left')
+    ax = cleanax(ax)
+    plt.tight_layout()
+    plt.savefig('../results/threading/thread_fastas/Russet_burbank_mapped_percentage.pdf')
 
 
 
+    data=covdf, x='Sample', y='thread(2+) coverage(%)', hue='Pericentromeres', dodge=True, ax=ax, hue_order=['Chromosome', 'Chromosome Arm'], s=3, palette=['black']*2, legend=False)
+
+
+
+    return
 # END
 
