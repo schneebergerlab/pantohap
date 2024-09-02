@@ -715,6 +715,7 @@ def archive_graphs_kmers():
     return
 # END
 
+
 # <editor-fold desc="OBSOLETE FUNCTIONS">
 
 def count_kmers_from_samples(samplekmersfin):
@@ -785,7 +786,3 @@ def count_kmers_from_samples(samplekmersfin):
 
 # </editor-fold>
 
-
-
-
-111
