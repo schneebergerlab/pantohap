@@ -457,6 +457,19 @@ def thread_summary_statistics():
     covdf['Pericentromeres'] = ['Chromosome' if t=='included' else 'Chromosome Arm' for t in covdf['Pericentromeres']]
 
 
+    # Node calling recall
+    fig, ax = plt.subplots(figsize=[4, 4])
+    ax = sns.boxplot(data=recdf, x='type', y='value', order=['Chromosome', 'Chromosome Arm', 'Chromosome without inversions','Chromosome Arm without inversions'], ax=ax)
+    ax = sns.stripplot(data=recdf, x='type', y='value', order=['Chromosome', 'Chromosome Arm', 'Chromosome without inversions','Chromosome Arm without inversions'], s=3, ax=ax, color='black')
+    ax = cleanax(ax)
+    ax.set_xlabel('Regions')
+    ax.set_ylabel('Accuracy')
+    ax.tick_params(axis='x', rotation=45)
+    ax.set_ylim(0, 1)
+    plt.tight_layout()
+    plt.savefig('white_rose_node_calling_recall.pdf')
+    plt.close()
+
     # Node calling accuracy
     fig, ax = plt.subplots(figsize=[4, 4])
     ax = sns.stripplot(data=accdf, x='type', y='value', order='All_regions No_pericentromeres No_inversions No_pericentromeres,No_inversion'.split(), s=3, ax=ax, color='black')
