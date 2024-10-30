@@ -1,9 +1,20 @@
 import pandas as pd
 import os
-from collections import defaultdict, deque, Counter
+from collections import defaultdict, deque, Counter, OrderedDict
 from matplotlib import pyplot as plt
 
-os.chdir("../Downloads/")
+import socket
+
+if socket.gethostname() == 'LMBIDP1-LXSCH01':
+    # Indir for local compute
+    indir = '/home/ra98jam/d16/projects/potato_hap_example/data/'
+    pwd = '/home/ra98jam/d16/projects/potato_hap_example/results/threading/thread_fastas/'
+else:
+    # Indir for cluster compute
+    indir = '/dss/dsslegfs01/pn29fi/pn29fi-dss-0016/projects/potato_hap_example/data/'
+    pwd = '/dss/dsslegfs01/pn29fi/pn29fi-dss-0016/projects/potato_hap_example/results/threading/thread_fastas/'
+
+os.chdir(pwd)
 # <editor-fold desc="Reader">
 
 def samtocoords(f):
@@ -450,14 +461,18 @@ def get_chrs_len_from_fai(fin):
             clen[line[0]] = int(line[1])
     return clen
 
+
 # Using the sorted contigs list generated using the D-genesis webtool
 sort_pos = pd.read_table("RussetBurbank.pseudo_contigs_RussetBurbank.genome_assoc.tsv")
+# Remove unplaced scaffolds
 sort_pos = sort_pos.loc[['chr' in i for i in sort_pos.Target]]
+selected_pseudo_contigs = sort_pos.Query.unique()
+sort_pos_grp = sort_pos.groupby('Target')
 coords = readcoords('rb.contigs_to_genome.paf', 'P', f=False, cigar=True)
 coords = coords.loc[['chr' in i for i in coords.aChr]]
+coords = coords.loc[coords.bChr.isin(selected_pseudo_contigs)]
 rchrs_len = get_chrs_len_from_fai('RussetBurbank.genome.fa.fai')
 qchrs_len = get_chrs_len_from_fai('RussetBurbank.pseudo_contigs.fa.fai')
-
 
 
 al = coords.copy()
@@ -472,34 +487,48 @@ al['aStart aEnd bStart bEnd'.split()] = al['aStart aEnd bStart bEnd'.split()].as
 # rchrs = sorted([k for k in rchrs_len.keys() if k in alachr], key=lambda x: rchrs_len[x], reverse=True)
 # qchrs = sorted([k for k in qchrs_len.keys() if k in albchr], key=lambda x: qchrs_len[x], reverse=True)
 # qchrs = sorted(qchrs_len.keys(), key=lambda x: qchrs_len[x], reverse=True)
-rchrs = []
-[rchrs.append(x) for x in sort_pos.Target.values if x not in rchrs]
+# rchrs = []
+# [rchrs.append(x) for x in sort_pos.Target.values if x not in rchrs]
+rchrs = [r for r in sorted(rchrs_len) if 'chr' in r]
 qchrs = []
-[qchrs.append(x) for x in sort_pos.Query.values if x not in qchrs]
+_ = [qchrs.append(x) for r in rchrs for x in sort_pos_grp.get_group(r).Query.values if x not in qchrs]
 rcumsum = deque([0])
 qcumsum = deque([0])
+roffdict = OrderedDict()
+qoffdict = OrderedDict()
 
-for i in range(1, len(rchrs)):
-    cumsum = sum([rchrs_len[rchrs[j]] for j in range(i)])
-    al.loc[al['aChr'] == rchrs[i], 'aStart'] += cumsum
-    al.loc[al['aChr'] == rchrs[i], 'aEnd'] += cumsum
-    # if ragp is not None:
-    #     for k in range(len(ragpdata[rchrs[i]])):
-    #         ragpdata[rchrs[i]][k][0] += cumsum
-    #         ragpdata[rchrs[i]][k][1] += cumsum
-    rcumsum.append(cumsum)
-    print(rchrs[i], al.aStart.min())
+for i, r in enumerate(rchrs):
+    roffdict[r] = sum([rchrs_len[rchrs[j]] for j in range(i)])
 
-for i in range(1, len(qchrs)):
-    cumsum = sum([qchrs_len[qchrs[j]] for j in range(i)])
-    al.loc[al['bChr'] == qchrs[i], 'bStart'] += cumsum
-    al.loc[al['bChr'] == qchrs[i], 'bEnd'] += cumsum
-    # if qagp is not None:
-    #     for k in range(len(qagpdata[qchrs[i]])):
-    #         qagpdata[qchrs[i]][k][0] += cumsum
-    #         qagpdata[qchrs[i]][k][1] += cumsum
-    qcumsum.append(cumsum)
+for i, q in enumerate(qchrs):
+    qoffdict[q] = sum([qchrs_len[qchrs[j]] for j in range(i)])
 
+al['aStart'] += [roffdict[c] for c in al['aChr']]
+al['aEnd'] += [roffdict[c] for c in al['aChr']]
+al['bStart'] += [qoffdict[c] for c in al['bChr']]
+al['bEnd'] += [qoffdict[c] for c in al['bChr']]
+
+#
+#     cumsum = sum([rchrs_len[rchrs[j]] for j in range(i)])
+#     al.loc[al['aChr'] == rchrs[i], 'aStart'] += cumsum
+#     al.loc[al['aChr'] == rchrs[i], 'aEnd'] += cumsum
+#     # if ragp is not None:
+#     #     for k in range(len(ragpdata[rchrs[i]])):
+#     #         ragpdata[rchrs[i]][k][0] += cumsum
+#     #         ragpdata[rchrs[i]][k][1] += cumsum
+#     rcumsum.append(cumsum)
+#     print(rchrs[i], al.aStart.min())
+#
+# for i in range(1, len(qchrs)):
+#     cumsum = sum([qchrs_len[qchrs[j]] for j in range(i)])
+#     al.loc[al['bChr'] == qchrs[i], 'bStart'] += cumsum
+#     al.loc[al['bChr'] == qchrs[i], 'bEnd'] += cumsum
+#     # if qagp is not None:
+#     #     for k in range(len(qagpdata[qchrs[i]])):
+#     #         qagpdata[qchrs[i]][k][0] += cumsum
+#     #         qagpdata[qchrs[i]][k][1] += cumsum
+#     qcumsum.append(cumsum)
+#
 al_data = deque()
 for row in al.itertuples(index=False):
     # if row[4] < 1000 or row[5] < minsize: next
@@ -508,8 +537,15 @@ for row in al.itertuples(index=False):
     if row[8] == 1: al_data.append('r')
     if row[8] == -1: al_data.append('b')
 al_data = list(al_data)
-xticks = [rcumsum[j] + (rchrs_len[rchrs[j]]) / 2 for j in range(len(rchrs))]
-yticks = [qcumsum[j] + (qchrs_len[qchrs[j]]) / 2 for j in range(len(qchrs))]
+xticks = [roffdict[r] + (rchrs_len[r]) / 2 for r in rchrs]
+yticks = [qoffdict[q] + (qchrs_len[q]) / 2 for q in qchrs]
+# yticks = [qcumsum[j] + (qchrs_len[qchrs[j]]) / 2 for j in range(len(qchrs))]
+
+# Pericentromere coords
+centro = pd.read_csv(f'{indir}/assemblies/R_48chrs_pericentromere.bed', header=None, sep='\t')
+centro[0] = [c.rsplit('_', maxsplit=1)[0] for c in centro[0].astype('str')]
+centro[1] += [roffdict[r] for r in centro[0]]
+centro[2] += [roffdict[r] for r in centro[0]]
 
 # logger.info('starting drawing')
 width = 18
@@ -519,22 +555,27 @@ ax = plt.subplot(1, 1, 1)
 ax.margins(x=0, y=0)
 ax.set_xlim([0, sum([rchrs_len[k] for k in rchrs])])
 ax.set_ylim([0, sum([qchrs_len[k] for k in qchrs])])
-ax.plot(*al_data, linewidth=0.5)
+ax.plot(*al_data, linewidth=0.5, zorder=1)
 ax.set_xticks(xticks)
-for r in rcumsum:
-    ax.axvline(r, linestyle='--', color='lightgrey', alpha=1, linewidth=0.1)
+# for r in rcumsum:
+#     ax.axvline(r, linestyle='--', color='lightgrey', alpha=1, linewidth=0.1)
+
+for r in np.array(list(roffdict.values())):
+    ax.axvline(r, linestyle='-', color='grey', alpha=1, linewidth=0.5)
+for r in np.array(list(roffdict.values()))[4::4]:
+    ax.axvline(r, linestyle='-', color='black', alpha=1, linewidth=2)
+
+for row in centro.itertuples(index=False):
+    ax.axvspan(row[1], row[2], color='lightgrey', alpha=0.5, zorder=0, linewidth=0)
+
+
 ax.set_xticklabels(rchrs, rotation=90)
+ax.set_xticklabels(rchrs, rotation=90)
+ax.tick_params(left=False, labelleft=False)
+
+ax.set_xlabel("RB chromosomes")
+ax.set_ylabel("Predicted pseudo-contigs")
 plt.tight_layout()
 plt.savefig('dotplot.png')
 plt.savefig('dotplot.pdf')
 plt.close()
-#
-# for r in qcumsum:
-#     ax.axhline(r, linestyle='--', color='black', alpha=1, linewidth=0.1)
-# ax.set_yticks(yticks)
-# ax.set_yticklabels(qchrs)
-#
-# plt.tight_layout()
-
-
-
