@@ -20,7 +20,7 @@ for i in 1 2 3 4; do
 #  for k in 21 31 41 51; do
   for k in 51; do
     cd $cwd; cd chr${chrid}; cd ${chars[${SLURM_ARRAY_TASK_ID}]}_hap${i}
-    mkdir -p kmer_size_${k} ; cd kmer_size_${k}
+    mkdir -p kmer_size_notd_${k} ; cd kmer_size_notd_${k}
 
     srun --exclusive --ntasks 1 --cpus-per-task ${SLURM_CPUS_PER_TASK} --mem-per-cpu=${SLURM_MEM_PER_CPU} \
 	    /dss/dsslegfs01/pn29fi/pn29fi-dss-0016/projects/potato_hap_example/tool/get_unique_kmer_per_window.sh \

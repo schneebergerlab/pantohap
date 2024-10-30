@@ -8,8 +8,8 @@ mem=$6
 
 meryl=/dss/dsslegfs01/pn29fi/pn29fi-dss-0003/software/bin_manish/anaconda3/envs/mgpy3.8/bin/meryl
 goodkmerdir=/dss/dsslegfs01/pn29fi/pn29fi-dss-0016/projects/potato_hap_example/results/kmer_analysis/kmer_size_${k}/${genome}_hap${hap}/
-synfastadir=/dss/dsslegfs01/pn29fi/pn29fi-dss-0016/projects/potato_hap_example/results/kmer_analysis/node_kmers/chr${chrid}/${genome}_hap${hap}/synfastas/
-cwd=/dss/dsslegfs01/pn29fi/pn29fi-dss-0016/projects/potato_hap_example/results/kmer_analysis/node_kmers/chr${chrid}/${genome}_hap${hap}/kmer_size_${k}/
+synfastadir=/dss/dsslegfs01/pn29fi/pn29fi-dss-0016/projects/potato_hap_example/results/kmer_analysis/node_kmers/chr${chrid}/${genome}_hap${hap}/synfastas_notd/
+cwd=/dss/dsslegfs01/pn29fi/pn29fi-dss-0016/projects/potato_hap_example/results/kmer_analysis/node_kmers/chr${chrid}/${genome}_hap${hap}/kmer_size_notd_${k}/
 
 cd $cwd
 ## Extract fasta files from the tars

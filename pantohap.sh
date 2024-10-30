@@ -19,10 +19,11 @@ run_msyd.sh
 # </editor-fold>
 
 # <editor-fold desc='Kmer counting'>
-cwd=/dss/dsslegfs01/pn29fi/pn29fi-dss-0016/projects/potato_hap_example/results/kmer_analysis/
-meryl=/dss/dsslegfs01/pn29fi/pn29fi-dss-0003/software/bin_manish/anaconda3/envs/mgpy3.8/bin/meryl
 
 # For each genome, select kmers present only once in the assembly
+cwd=/dss/dsslegfs01/pn29fi/pn29fi-dss-0016/projects/potato_hap_example/results/kmer_analysis/
+meryl=/dss/dsslegfs01/pn29fi/pn29fi-dss-0003/software/bin_manish/anaconda3/envs/mgpy3.8/bin/meryl
+cd $cwd
 sbatch ../../tool/sbatch_files/SBATCH_get_unique_kmers_from_assemblies_part1.sh
 
 
@@ -31,7 +32,7 @@ sbatch ../../tool/sbatch_files/SBATCH_get_unique_kmers_from_assemblies_part1.sh
 # for k in 21 31 41 51; do
 for k in 51; do
     cd ${cwd}/kmer_size_${k}
-    $meryl union output all_genome_multi *hap*/*multi
+    $meryl union  threads=40 memory=20 output all_genome_multi *hap*/*multi
 done
 
 sbatch ../../tool/sbatch_files/SBATCH_get_unique_kmers_from_assemblies_part2.sh
@@ -69,9 +70,10 @@ done
 # Haplotype graph filename
 k=51
 chrs = ["chr{:02d}".format(i) for i in range(1, 13)]
-for d in [0.1, 0.05, 0.01]:
-for d in [0.05, 0.01]:
-    hgf = 'haplotype_graph_{c}' + '_div{d}_2024_08_02.txt'.format(d=d)
+#for d in [0.1, 0.05, 0.01]:
+for d in [0.1]:
+#    hgf = 'haplotype_graph_{c}' + '_div{d}_2024_08_02.txt'.format(d=d)
+    hgf = 'haplotype_graph_notd_{c}' + '_div{d}_2024_10_28.txt'.format(d=d)
     with Pool(processes=12) as pool:
         pool.map(partial(get_unique_kmers_per_node, hgf=hgf, k=k), chrs)
 

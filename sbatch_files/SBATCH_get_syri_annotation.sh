@@ -16,7 +16,7 @@ cd /dss/dsslegfs01/pn29fi/pn29fi-dss-0016/projects/potato_hap_example/data/chr${
 function get_anno () {
   tabix ${1}.out.bed.gz -R $fname \
   | sort -k1,1 -k2,2n \
-  | uniq > ${1}.out.bed.snp_anno.txt
+  | uniq > ${1}.out.bed.notd.snp_anno.txt
 }
 
 export -f get_anno
