@@ -62,14 +62,14 @@ def getsamplestates(sid, pwd, snpdf, c):
             state.append(1)
             continue
         hdfsnp = hdf.loc[(hdf[1] <= int(row[0][1])) & (hdf[2] >= int(row[0][1]))]
-        # Condition 1: Is syntenic but no SNP was found
-        if 'SYNAL' in hdfsnp[6].values:
+        # Condition 1: Is locally aligned at the position (syntenic or inverted) but no SNP was found
+        if 'SYNAL' in hdfsnp[6].values or 'INVAL' in hdfsnp[6].values:
             state.append(0)
             continue
         # Condition 2: Has an inverted allele
-        if 'INVAL' in hdfsnp[6].values:
-            state.append(2)
-            continue
+        # if 'INVAL' in hdfsnp[6].values:
+        #     state.append(2)
+        #     continue
         # Condition 4: Everything else is considered as a deletion
         state.append(3)
     return state
@@ -214,7 +214,8 @@ def hapnodesfromvcffile(snpfin):
         print(c, str(datetime.now()))
         os.chdir(f'{pwd}/{c}')
 
-        snpfin = f'{os.getcwd()}/dm_all_sample_{c}.syri.nosr.snps.merged.vcf.del_markers.txt'
+        # snpfin = f'{os.getcwd()}/dm_all_sample_{c}.syri.nosr.snps.merged.vcf.del_markers.txt'
+        snpfin = f'{os.getcwd()}/dm_all_sample_{c}.syri.notd.snps.merged.vcf.del_markers.txt'
         # snpfin = 'dm_all_sample_chr2.with_Otava.syri.nosr.snps.merged.vcf.del_markers.txt'
 
         snpdf = pd.read_table(f"{snpfin}")
@@ -230,12 +231,12 @@ def hapnodesfromvcffile(snpfin):
         a = np.arange(1, chrsize, 100000)
         a = np.append(a, chrsize)
 
-        div = 0.01
+        div = 0.1
         with Pool(processes=20) as pool:
             hapblocks = pool.map(partial(getnodes, div=div), a[:-1])
 
         index = 0
-        with open(f"{os.getcwd()}/haplotype_graph_{c}_div{div}_{str(datetime.now().date()).replace('-', '_')}.txt", 'w') as fout:
+        with open(f"{os.getcwd()}/haplotype_graph_notd_{c}_div{div}_{str(datetime.now().date()).replace('-', '_')}.txt", 'w') as fout:
         # with open(f"{pwd}/haplotype_graph_with_Otava{str(datetime.now().date()).replace('-', '_')}.txt", 'w') as fout:
             for hapblock in hapblocks:
                 for hap in hapblock[2:]:
@@ -249,13 +250,13 @@ def hapnodesfromvcffile(snpfin):
 def get_sequence(sample, indir, pwd, a, chrom):
     from pathlib import Path
     print(sample)
-    Path(f'{pwd}/{sample}/synfastas').mkdir(parents=True, exist_ok=True)
-    os.chdir(f'{pwd}/{sample}/synfastas')
+    Path(f'{pwd}/{sample}/synfastas_notd').mkdir(parents=True, exist_ok=True)
+    os.chdir(f'{pwd}/{sample}/synfastas_notd')
 
     g, h = sample.split('_hap')
     # get syn regions
     synr = pd.read_csv(f'{indir}/dm_{g}_{chrom}_hap{h}syri.out', header=None, sep='\t')
-    synr = synr.loc[synr[10] == 'SYNAL']
+    synr = synr.loc[synr[10].isin(['SYNAL', 'INVAL'])]
     synr[[1, 2, 6, 7]] = synr[[1, 2, 6, 7]].astype(int)
     synd = dict()
     for i in a:
@@ -267,10 +268,10 @@ def get_sequence(sample, indir, pwd, a, chrom):
             pr2 = pr.from_dict({"Chromosome": [chrom]*sinr.shape[0],
                                 "Start": sinr[1],
                                 "End": sinr[2],
-                                "query": sinr[[6, 7]].values.tolist()})
+                                "query": sinr[[6, 7]].values.tolist(),
+                                "type": sinr[10]})
             synd[i] = pr2.intersect(pr1)
     (_, seq) = next(readfasta_iterator(open(f'{indir}/{g}_{chrom}_hap{h}.fa', 'r')))
-
     TOBREAK = False
     for i, r in synd.items():
         with open(f'syn_fasta_{sample}_bin_{i}.fasta', 'w') as fout:
@@ -280,12 +281,14 @@ def get_sequence(sample, indir, pwd, a, chrom):
                     qs = c[3][0]
                 else:
                     # Get the exact matching position when the reference alignment was (potentially) trimmed at the start of the window
-                    mappos = mapbp(sfin=f'{indir}/dm_{g}_{chrom}_hap{h}syri.out.syn.bed.gz', mapfin=f'{indir}/dm_{g}_{chrom}_hap{h}.bam', d=True, posstr=f'{chrom}:{i}-{i}', QUERY_REG=c[3])
-                    mappos = list(map(lambda x: int(x.split(':')[1].split('-')[0]) if '+' in x else None, mappos))
+                    # mappos = mapbp(sfin=f'{indir}/dm_{g}_{chrom}_hap{h}syri.out.syn.bed.gz', mapfin=f'{indir}/dm_{g}_{chrom}_hap{h}.bam', d=True, posstr=f'{chrom}:{i}-{i}', QUERY_REG=c[3])
+                    mappos = mapbp(sfin=f'{indir}/dm_{g}_{chrom}_hap{h}syri.out.bed.gz', mapfin=f'{indir}/dm_{g}_{chrom}_hap{h}.bam', d=True, posstr=f'{chrom}:{i}-{i}', QUERY_REG=c[3])
+                    # mappos = list(map(lambda x: int(x.split(':')[1].split('-')[0]) if '+' in x else None, mappos))
+                    mappos = list(map(lambda x: int(x.split(':')[1].split('-')[0]), mappos))
                     mappos = [x for x in mappos if x is not None]
                     # If more than 1 mapping position was identified, then select the position that is within the selected alignment
                     if len(mappos) > 1:
-                        mapfit = list(map(lambda x: c[3][0] < x < c[3][1], mappos))
+                        mapfit = list(map(lambda x: c[3][0] < x < c[3][1] if 'INV' not in c.type else c[3][0] > x > c[3][1], mappos))
                         if mapfit.count(True) == 1:
                             qs = mappos[mapfit.index(True)]
                         else:
@@ -304,12 +307,14 @@ def get_sequence(sample, indir, pwd, a, chrom):
                     qe = c[3][1]
                 else:
                     # Get the exact matching position when the reference alignment was (potentially) trimmed at the end of the window
-                    mappos = mapbp(sfin=f'{indir}/dm_{g}_{chrom}_hap{h}syri.out.syn.bed.gz', mapfin=f'{indir}/dm_{g}_{chrom}_hap{h}.bam', d=True, posstr=f'{chrom}:{i+100000}-{i+100000}',QUERY_REG=c[3])
-                    mappos = list(map(lambda x: int(x.split(':')[1].split('-')[0]) if '+' in x else None, mappos))
+                    # mappos = mapbp(sfin=f'{indir}/dm_{g}_{chrom}_hap{h}syri.out.syn.bed.gz', mapfin=f'{indir}/dm_{g}_{chrom}_hap{h}.bam', d=True, posstr=f'{chrom}:{i+100000}-{i+100000}', QUERY_REG=c[3])
+                    mappos = mapbp(sfin=f'{indir}/dm_{g}_{chrom}_hap{h}syri.out.bed.gz', mapfin=f'{indir}/dm_{g}_{chrom}_hap{h}.bam', d=True, posstr=f'{chrom}:{i+100000}-{i+100000}', QUERY_REG=c[3])
+                    # mappos = list(map(lambda x: int(x.split(':')[1].split('-')[0]) if '+' in x else None, mappos))
+                    mappos = list(map(lambda x: int(x.split(':')[1].split('-')[0]), mappos))
                     mappos = [x for x in mappos if x is not None]
                     # If more than 1 mapping position was identified, then select the position that is within the selected alignment
                     if len(mappos) > 1:
-                        mapfit = list(map(lambda x: c[3][0] < x < c[3][1], mappos))
+                        mapfit = list(map(lambda x: c[3][0] < x < c[3][1] if 'INV' not in c.type else c[3][0] > x > c[3][1], mappos))
                         if mapfit.count(True) == 1:
                             qe = mappos[mapfit.index(True)]
                             # print(c, mappos, qe)
@@ -319,9 +324,16 @@ def get_sequence(sample, indir, pwd, a, chrom):
                             TOBREAK = True
                             break
                     else:
-                        qe = mappos[0]
+                        try:
+                            qe = mappos[0]
+                        except IndexError as e:
+                            print(sample, c)
+                            raise IndexError(e)
                 fout.write(f'>{chrom}_{g}_hap{h}_r_{c[1]}_{c[2]}_q_{qs}_{qe}\n')
-                fout.write(seq[(qs-1):qe] + '\n')
+                if 'INV' not in c.type:
+                    fout.write(seq[(qs-1):qe] + '\n')
+                else:
+                    fout.write(seq[(qe-1):qs] + '\n')
             if TOBREAK:
                 break
     return
@@ -364,95 +376,60 @@ def get_node_query_sequence():
     logger.disabled = True
     chrs = ["chr{:02d}".format(i) for i in range(1, 13)]
     for c in chrs:
-    # for c in ['chr04']:
         print(c, str(datetime.now()))
         os.chdir(f'{pwd}/{c}')
-        # print(os.getcwd())
         with open(f'{indir}/{c}/DM_{c}.fa.fai', 'r') as f:
             chrsize = int(f.readline().strip().split()[1])
         a = np.arange(1, chrsize, 100000)
         a = np.append(a, chrsize)
         with Pool(processes=40) as pool:
             pool.map(partial(get_sequence, indir=f'{indir}/{c}', pwd=f'{pwd}/{c}', a=a, chrom=c), samples[1:])
-            # pool.map(partial(get_sequence, indir=f'{indir}/{c}', pwd=f'{pwd}/{c}', a=a, chrom=c), ['E_hap4'])
-            # pool.map(partial(get_sequence, indir=f'{indir}/{c}', pwd=f'{pwd}/{c}', a=a, chrom=c), ['B_hap1'])
-    return
-
-    #
-    # # Run in /dss/dsslegfs01/pn29fi/pn29fi-dss-0016/projects/potato_hap_example/data/
-    # # For each sample, select syntenic region in each window (100kb). Skip DM.
-    # for sample in samples[1:5]:
-    #     print(sample)
-    #     g, h = sample.split('_hap')
-    #     # get syn regions
-    #     synr = pd.read_csv(f'{pwd}/dm_{g}_chr02_hap{h}syri.out', header=None, sep='\t')
-    #     synr = synr.loc[synr[10] == 'SYNAL']
-    #     synr[[1, 2, 6, 7]] = synr[[1, 2, 6, 7]].astype(int)
-    #     synd = dict()
-    #     for i in a:
-    #         sinr = synr.loc[(synr[1] < (i+100000)) & (synr[2] > i)]
-    #         if sinr.shape[0] > 0:
-    #             pr1 = pr.from_dict({"Chromosome": ["chr02"],
-    #                                 "Start": [i],
-    #                                 "End": [i+100000]})
-    #             pr2 = pr.from_dict({"Chromosome": ["chr02"]*sinr.shape[0],
-    #                                 "Start": sinr[1],
-    #                                 "End": sinr[2],
-    #                                 "query": sinr[[6, 7]].values.tolist()})
-    #             synd[i] = pr2.intersect(pr1)
-    #     (chrom, seq) = next(readfasta_iterator(open(f'{pwd}/{g}_chr02_hap{h}.fa', 'r')))
-    #
-    #     TOBREAK = False
-    #     for i, r in synd.items():
-    #         with open(f'{pwd}/synfastas/syn_fasta_{sample}_bin_{i}.fasta', 'w') as fout:
-    #             for c in r.df.itertuples(index=False):
-    #                 # Get query start position
-    #                 if c.Start != i:
-    #                     qs = c[3][0]
-    #                 else:
-    #                     # Get the exact matching position when the reference alignment was (potentially) trimmed at the start of the window
-    #                     mappos = mapbp(sfin=f'{pwd}/dm_{g}_chr02_hap{h}syri.out.bed.gz', mapfin=f'{pwd}/dm_{g}_chr02_hap{h}.bam', d=True, posstr=f'chr02:{i}-{i}')
-    #                     mappos = list(map(lambda x: int(x.split(':')[1].split('-')[0]) if '+' in x else None, mappos))
-    #                     mappos = [x for x in mappos if x is not None]
-    #                     # If more than 1 mapping position was identified, then select the position that is within the selected alignment
-    #                     if len(mappos) > 1:
-    #                         mapfit = list(map(lambda x: c[3][0] < x < c[3][1], mappos))
-    #                         if mapfit.count(True) == 1:
-    #                             qs = mappos[mapfit.index(True)]
-    #                         else:
-    #                             print('Breaking qs')
-    #                             TOBREAK = True
-    #                             break
-    #                     else:
-    #                         qs = mappos[0]
-    #
-    #                 # Get query end position
-    #                 if c.End != i+100000:
-    #                     qe = c[3][1]
-    #                 else:
-    #                     # Get the exact matching position when the reference alignment was (potentially) trimmed at the end of the window
-    #                     mappos = mapbp(sfin=f'{pwd}/dm_{g}_chr02_hap{h}syri.out.bed.gz', mapfin=f'{pwd}/dm_{g}_chr02_hap{h}.bam', d=True, posstr=f'chr02:{i+100000}-{i+100000}')
-    #                     mappos = list(map(lambda x: int(x.split(':')[1].split('-')[0]) if '+' in x else None, mappos))
-    #                     mappos = [x for x in mappos if x is not None]
-    #                     # If more than 1 mapping position was identified, then select the position that is within the selected alignment
-    #                     if len(mappos) > 1:
-    #                         mapfit = list(map(lambda x: c[3][0] < x < c[3][1], mappos))
-    #                         if mapfit.count(True) == 1:
-    #                             qe = mappos[mapfit.index(True)]
-    #                             # print(c, mappos, qe)
-    #                         else:
-    #                             print('Breaking qe')
-    #                             TOBREAK = True
-    #                             break
-    #                     else:
-    #                         qe = mappos[0]
-    #                 fout.write(f'>chr02_{g}_hap{h}_r_{c[1]}_{c[2]}_q_{qs}_{qe}\n')
-    #                 fout.write(seq[(qs-1):qe] + '\n')
-    #             if TOBREAK:
-    #                 break
     return
 # END
 
+
+def gethapmers(row, cwd=None):
+    if cwd is None:
+        raise ValueError(f'cwd is missing')
+    b = row[0]
+    haps = row[2].split(',')
+    kmers = set()
+    for h in haps:
+        if h == 'dm': continue
+        c = h.split('_')[0]
+        i = int(h.split('hap')[1])
+        try:
+            # with open(f'{cwd}/{c}_hap{i}/kmer_size_{k}/syn_fasta_{c}_hap{i}_bin_{b}.k{k}.good.txt', 'r') as f:
+            with open(f'{cwd}/{c}_hap{i}/kmer_size_notd_{k}/syn_fasta_{c}_hap{i}_bin_{b}.k{k}.good.txt', 'r') as f:
+                hkmers = set([l.split()[0] for l in f])
+            kmers.update(hkmers)
+        except FileNotFoundError:
+            pass
+    return kmers
+# END
+
+def gethapmers_dict(row, cwd='.'):
+    """
+    Returns a dictionary with Kmers as keys and haplotype ids containing that kmer as values and the node ID from the
+    corresponding haplotype graph
+    """
+
+    b = row[0]
+    haps = row[2].split(',')
+    kmers = defaultdict(deque)
+    for h in haps:
+        if h == 'dm': continue
+        c = h.split('_')[0]
+        i = int(h.split('hap')[1])
+        try:
+            # with open(f'{cwd}/{c}_hap{i}/kmer_size_{k}/syn_fasta_{c}_hap{i}_bin_{b}.k{k}.good.txt', 'r') as f:
+            with open(f'{cwd}/{c}_hap{i}/kmer_size_notd_{k}/syn_fasta_{c}_hap{i}_bin_{b}.k{k}.good.txt', 'r') as f:
+                hkmers = set([l.strip().split()[0] for l in f])
+            [kmers[kmer].append(h) for kmer in hkmers]
+        except FileNotFoundError:
+            pass
+    return kmers, row[3]
+# END
 
 def get_unique_kmers_per_node(c, hgf, k):
     """
@@ -467,29 +444,11 @@ def get_unique_kmers_per_node(c, hgf, k):
     import socket
     getdate = lambda: str(datetime.now().date()).replace('-', '_')
 
-    def gethapmers(cwd, row):
-        b = row[0]
-        haps = row[2].split(',')
-        kmers = set()
-        for h in haps:
-            if h == 'dm': continue
-            c = h.split('_')[0]
-            i = int(h.split('hap')[1])
-            try:
-                with open(f'{cwd}/{c}_hap{i}/kmer_size_{k}/syn_fasta_{c}_hap{i}_bin_{b}.k{k}.good.txt', 'r') as f:
-                    hkmers = set([l.strip().split()[0] for l in f])
-                kmers.update(hkmers)
-            except FileNotFoundError:
-                pass
-        return kmers
-    # END
-
     def getwinmers(grp):
         kmers = set()
         for row in grp[1].itertuples(index=False):
             kmers.update(gethapmers(row))
         return kmers
-
 
     if socket.gethostname() == 'LMBIDP1-LXSCH01':
         # Indir for local compute
@@ -500,7 +459,6 @@ def get_unique_kmers_per_node(c, hgf, k):
         pwd = '/dss/dsslegfs01/pn29fi/pn29fi-dss-0016/projects/potato_hap_example/results/kmer_analysis/node_kmers/'
         indir='/dss/dsslegfs01/pn29fi/pn29fi-dss-0016/projects/potato_hap_example/data/'
 
-
     # chrs = ["chr{:02d}".format(i) for i in range(1, 13)]
     # for c in chrs:
     print(c, str(datetime.now()))
@@ -510,18 +468,27 @@ def get_unique_kmers_per_node(c, hgf, k):
     unifin = f'{pwd}/{c}/uninodekmers_k{k}_{getdate()}_{hgfc.rsplit(".", maxsplit=1)[0]}.txt'
     nkfin = f'{pwd}/{c}/nodekmers_k{k}_{getdate()}_{hgfc.rsplit(".", maxsplit=1)[0]}.txt'
 
-
     # <editor-fold desc="Find kmers that are unique in each node: Get kmers that are present in a single node in the graph">
+
+    # unikmers = set()
+    # badkmers = set()
+    # hapdf_it = pd.read_table(f'{indir}/{c}/{hgfc}', header=None, chunksize=40)
+    # with Pool(processes=40) as pool:
+    #     for i, hapdf in enumerate(hapdf_it):
+    #         kmers_list = pool.map(partial(gethapmers, cwd=f'{pwd}/{c}'), list(map(list, hapdf.itertuples(index=False))))
+    #         for kmers in kmers_list:
+    #             kmers = kmers.difference(badkmers)
+    #             badkmers.update(kmers.intersection(unikmers))
+    #             unikmers.symmetric_difference_update(kmers)
+
     unikmers = set()
     badkmers = set()
     hapdf = pd.read_table(f'{indir}/{c}/{hgfc}', header=None)
-    for row in hapdf.itertuples(index=False):
-        kmers = gethapmers(f'{pwd}/{c}', row)
+    for i, row in enumerate(hapdf.itertuples(index=False)):
+        kmers = gethapmers(row, f'{pwd}/{c}')
         kmers.difference_update(badkmers)
         badkmers.update(kmers.intersection(unikmers))
         unikmers.symmetric_difference_update(kmers)
-
-
     with open(unifin, 'w') as fout:
         fout.write('\n'.join(unikmers))
 
@@ -529,12 +496,38 @@ def get_unique_kmers_per_node(c, hgf, k):
     unikmers = set([l.strip() for l in open(unifin, 'r')])
     with open(nkfin, 'w') as fout:
         for row in hapdf.itertuples(index=False):
-            kmers = gethapmers(f'{pwd}/{c}', row)
+            # kmers = gethapmers(row, f'{pwd}/{c}')
+            # kmers.intersection_update(unikmers)
+            # unikmers.difference_update(kmers)
+            # if len(kmers) > 0:
+            #     fout.write("\n".join([f'{row[3]}\t{k}' for k in kmers]) + "\n")
+            kmers_dict, pos = gethapmers_dict(row, f'{pwd}/{c}')
+            kmers = set(kmers_dict.keys())
             kmers.intersection_update(unikmers)
             unikmers.difference_update(kmers)
             if len(kmers) > 0:
-                fout.write("\n".join([f'{row[3]}\t{k}' for k in kmers]) + "\n")
+                fout.write("\n".join([f'{pos}\t{kmer}\t{",".join(kmers_dict[kmer])}' for kmer in kmers]) + "\n")
+
     # </editor-fold>
+
+
+    # # Get kmers that are unique in each node and save them
+    # unikmers = set([l.strip() for l in open(unifin, 'r')])
+    # hapdf_it = pd.read_table(f'{indir}/{c}/{hgfc}', header=None, chunksize=40)
+    # with open(nkfin, 'w') as fout:
+    #     with Pool(processes=40) as pool:
+    #         # for row in hapdf.itertuples(index=False):
+    #         for i, hapdf in enumerate(hapdf_it):
+    #             # kmers_dict = gethapmers_dict(f'{pwd}/{c}', row)
+    #             kmers_dict_list = pool.map(partial(gethapmers_dict, cwd=f'{pwd}/{c}'),
+    #                                        list(map(list, hapdf.itertuples(index=False))))
+    #             for kmers_dict, pos in kmers_dict_list:
+    #                 kmers = set(kmers_dict.keys())
+    #                 kmers.intersection_update(unikmers)
+    #                 unikmers.difference_update(kmers)
+    #                 if len(kmers) > 0:
+    #                     fout.write("\n".join([f'{pos}\t{kmer}\t{",".join(kmers_dict[kmer])}' for kmer in kmers]) + "\n")
+
 
     # <editor-fold desc="Find kmers that are unique in to each window (but might be shared between nodes): Get kmers that are present in a single window in the graph">
     # TODO: update it to work for all chromosomes
@@ -714,6 +707,59 @@ def archive_graphs_kmers():
 
     return
 # END
+
+
+def _kmerperchr(chrom):
+    from itertools import product
+    import string
+    from glob import glob
+    from hometools.hometools import revcomp
+    from collections import deque
+
+    print(chrom)
+    samples = [f'{i}_hap{j}' for i, j in product(string.ascii_uppercase[:10], range(1, 5))]
+    kmerdict = dict()
+    i = 1
+    for sample in samples:
+        fin = glob(f'{sample}/{sample}_{chrom}_*_good_kmers.sorted.bam')
+        assert len(fin) == 1
+        out_indices = deque()
+        for read in pysam.AlignmentFile(fin[0], 'rb'):
+            qs = read.query_sequence if read.is_forward else revcomp(read.query_sequence)
+            try:
+                index = kmerdict[qs]
+            except KeyError:
+                kmerdict[qs] = i
+                index = i
+                i += 1
+            out_indices.append(index)
+        print(f'writing kmers for {chrom} {sample}')
+        with open(f'{sample}/{sample}_{chrom}.kmer_indices.txt', 'w') as fout:
+            fout.write('\n'.join(list(map(str, out_indices))))
+    with open(f'{chrom}.kmer_indices.txt', 'w') as fout:
+        for k, v in kmerdict.items():
+            fout.write(f'{v}\t{k}\n')
+    return 0
+# END
+
+def getkmerperchr():
+    import pysam
+    from multiprocessing import Pool
+    import os
+    import socket
+    
+    if socket.gethostname() == 'LMBIDP1-LXSCH01':
+        # Indir for local compute
+        pwd = '/home/ra98jam/d16/projects/potato_hap_example/results/kmer_analysis/kmer_size_51/'
+    else:
+        # Indir for cluster compute
+        pwd = '/dss/dsslegfs01/pn29fi/pn29fi-dss-0016/projects/potato_hap_example/results/kmer_analysis/kmer_size_51/'
+    
+    os.chdir(pwd)
+    chrs = ["chr{:02d}".format(i) for i in range(1, 13)]
+    with Pool(processes=12) as pool:
+        _ = pool.map(_kmerperchr, chrs)
+    return
 
 
 # <editor-fold desc="OBSOLETE FUNCTIONS">
