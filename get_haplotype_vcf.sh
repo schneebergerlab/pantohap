@@ -140,7 +140,8 @@ for c in {01..12}; do
         {
           if [ -f dm_${g}_chr${c}_hap${i}syri.vcf ]; then
             sed -i 's/v4.3/v4.2/' dm_${g}_chr${c}_hap${i}syri.vcf
-            grep -P -v 'TRANS|INV|DUP' dm_${g}_chr${c}_hap${i}syri.vcf > dm_${g}_chr${c}_hap${i}syri.nosr.vcf
+#            grep -P -v 'TRANS|INV|DUP' dm_${g}_chr${c}_hap${i}syri.vcf > dm_${g}_chr${c}_hap${i}syri.nosr.vcf
+            grep -P -v 'TRANS|INVTR|DUP|INVDP' dm_${g}_chr${c}_hap${i}syri.vcf > dm_${g}_chr${c}_hap${i}syri.notd.vcf
           else
             echo missing dm_${g}_chr${c}_hap${i}syri.vcf
           fi
@@ -160,8 +161,10 @@ for c in {01..12}; do
       {
       if [ -f dm_${g}_chr${c}_hap${i}syri.vcf ]; then
           echo "starting"
-          finname=dm_${g}_chr${c}_hap${i}syri.nosr.snps
-          vcftools --vcf dm_${g}_chr${c}_hap${i}syri.nosr.vcf \
+#          finname=dm_${g}_chr${c}_hap${i}syri.nosr.snps
+#          vcftools --vcf dm_${g}_chr${c}_hap${i}syri.nosr.vcf \
+          finname=dm_${g}_chr${c}_hap${i}syri.notd.snps
+          vcftools --vcf dm_${g}_chr${c}_hap${i}syri.notd.vcf \
               --remove-indels --recode --recode-INFO-all \
               --chr chr${c} \
               --out $finname
@@ -174,15 +177,17 @@ for c in {01..12}; do
       } &
     done
   done
-  wait``
+  wait
 done
 
 # Merge the 40 VCF files
 for c in {01..12}; do
   cd /dss/dsslegfs01/pn29fi/pn29fi-dss-0016/projects/potato_hap_example/data/chr$c
   {
-  bcftools merge dm*syri.nosr.snps.sorted.vcf.gz -Oz -o dm_all_sample_chr${c}.syri.nosr.snps.merged.vcf.gz
-  bcftools index dm_all_sample_chr${c}.syri.nosr.snps.merged.vcf.gz
+#  bcftools merge dm*syri.nosr.snps.sorted.vcf.gz -Oz -o dm_all_sample_chr${c}.syri.nosr.snps.merged.vcf.gz
+#  bcftools index dm_all_sample_chr${c}.syri.nosr.snps.merged.vcf.gz
+  bcftools merge dm*syri.notd.snps.sorted.vcf.gz -Oz -o dm_all_sample_chr${c}.syri.notd.snps.merged.vcf.gz
+  bcftools index dm_all_sample_chr${c}.syri.notd.snps.merged.vcf.gz
   } &
 done
 
@@ -194,10 +199,14 @@ for c in {01..12}; do
   {
   cd /dss/dsslegfs01/pn29fi/pn29fi-dss-0016/projects/potato_hap_example/data/chr$c
   # Get a genotype table for the selected SNPs (Contains 1 for alt allele and '.' otherwise)
-  zgrep -v '^##' dm_all_sample_chr${c}.syri.nosr.snps.merged.vcf.gz \
+#  zgrep -v '^##' dm_all_sample_chr${c}.syri.nosr.snps.merged.vcf.gz \
+#  | cut --complement -f 3,8 \
+#  | grep -v ',' \
+#  > dm_all_sample_chr${c}.syri.nosr.snps.merged.vcf.txt
+  zgrep -v '^##' dm_all_sample_chr${c}.syri.notd.snps.merged.vcf.gz \
   | cut --complement -f 3,8 \
   | grep -v ',' \
-  > dm_all_sample_chr${c}.syri.nosr.snps.merged.vcf.txt
+  > dm_all_sample_chr${c}.syri.notd.snps.merged.vcf.txt
 
   # The following command does not seem to be necessary. I keep
   # it here in case the ".regions" files are used somewhere.
@@ -210,8 +219,10 @@ done
 #############################################################
 for c in {01..12}; do
   cd /dss/dsslegfs01/pn29fi/pn29fi-dss-0016/projects/potato_hap_example/data/chr$c
-  fname=dm_all_sample_chr${c}.syri.nosr.snps.merged.vcf.regions_for_tabix.txt
-  awk 'NR>1 { print $1"\t"$2-1"\t"$2}' dm_all_sample_chr${c}.syri.nosr.snps.merged.vcf.txt > $fname
+#  fname=dm_all_sample_chr${c}.syri.nosr.snps.merged.vcf.regions_for_tabix.txt
+#  awk 'NR>1 { print $1"\t"$2-1"\t"$2}' dm_all_sample_chr${c}.syri.nosr.snps.merged.vcf.txt > $fname
+  fname=dm_all_sample_chr${c}.syri.notd.snps.merged.vcf.regions_for_tabix.txt
+  awk 'NR>1 { print $1"\t"$2-1"\t"$2}' dm_all_sample_chr${c}.syri.notd.snps.merged.vcf.txt > $fname
   chrid=$c
   export chrid
   export fname
@@ -219,7 +230,6 @@ for c in {01..12}; do
 done
 
 
-#
 #    # With Otava
 #    fname=dm_all_sample_chr2.with_Otava.syri.nosr.snps.merged.vcf.regions_for_tabix.txt
 #    awk 'NR>1 { print $1"\t"$2-1"\t"$2+1}' dm_all_sample_chr2.with_Otava.syri.nosr.snps.merged.vcf.txt > $fname
