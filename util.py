@@ -50,7 +50,8 @@ def editdist(iter1, iter2):
 def getsamplestates(sid, pwd, snpdf, c):
     print(c, sid)
     # TODO: Update input file name
-    hdf = pd.read_table(f'{pwd}/dm_{sid[0]}_{c}_hap{sid[1]}syri.out.bed.snp_anno.txt', header=None, low_memory=False)
+    # hdf = pd.read_table(f'{pwd}/dm_{sid[0]}_{c}_hap{sid[1]}syri.out.bed.snp_anno.txt', header=None, low_memory=False)
+    hdf = pd.read_table(f'{pwd}/dm_{sid[0]}_{c}_hap{sid[1]}syri.out.bed.notd.snp_anno.txt', header=None, low_memory=False)
     # hdf = pd.read_table(f'{pwd}/dm_{sid[0]}_chr02_hap{sid[1]}.with_Otava.syri.out.bed.snp_anno.txt', header=None, low_memory=False)
     hdf = hdf.loc[hdf[6] != 'SNP']
     hdf.sort_values([1, 2], inplace=True)
@@ -102,7 +103,8 @@ def updatesnpgenotypes(pwd, c, nproc):
 
     os.chdir(pwd)
     # TODO: Update the input file name
-    snpfin = f'dm_all_sample_{c}.syri.nosr.snps.merged.vcf.txt'
+    # snpfin = f'dm_all_sample_{c}.syri.nosr.snps.merged.vcf.txt'
+    snpfin = f'dm_all_sample_{c}.syri.notd.snps.merged.vcf.txt'
     # snpfin = f"dm_all_sample_chr2.with_Otava.syri.nosr.snps.merged.vcf.txt"
 
     sids = list(product(string.ascii_uppercase[:10], range(1, 5)))
@@ -133,7 +135,8 @@ def updatesnpgenotypes(pwd, c, nproc):
     snpdfout = pd.concat([anndf, snpdfout], axis=1)
 
     # TODO: Update the output file name
-    snpdfout.to_csv(f'{pwd}/dm_all_sample_{c}.syri.nosr.snps.merged.vcf.del_markers.txt', sep='\t', index=False)
+    # snpdfout.to_csv(f'{pwd}/dm_all_sample_{c}.syri.nosr.snps.merged.vcf.del_markers.txt', sep='\t', index=False)
+    snpdfout.to_csv(f'{pwd}/dm_all_sample_{c}.syri.notd.snps.merged.vcf.del_markers.txt', sep='\t', index=False)
     # snpdfout.to_csv(f'{pwd}/dm_all_sample_chr2.with_Otava.syri.nosr.snps.merged.vcf.del_markers.txt', sep='\t', index=False)
 
     return
