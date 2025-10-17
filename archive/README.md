@@ -14,6 +14,6 @@ The steps of the pipeline are present in the pantohap.sh. The steps are:
    1) Uses sbatch_files/SBATCH_get_unique_kmers_from_assemblies_part1.sh and sbatch_files/SBATCH_get_unique_kmers_from_assemblies_part2.sh files. 
 4) For each window, fetch the fasta sequence of the corresponding syntenic region for each of the genomes. Done using util.py -> get_node_query_sequence()
 5) From these fasta files, select kmers that are present only once in fasta and selected as candidate kmers from the assemblies. Done using sbatch_files/SBATCH_get_unique_kmer_per_window.sh
-6) Merge kmers present in sequences from a node and are specific on the node. Done using util.py -> get_unique_kmers_per_node(). This creates the nodekmers*txt files which lists all identified kmer markers for each of the node. These kmers are then used to run EM and threading algorithms.
+6) Merge kmers present in sequences from a node and are specific on the node. Done using util.py -> get_unique_kmers_per_node(). This creates the nodekmers\*.txt files which lists all identified kmer markers for each of the node. These kmers are then used to run EM and threading algorithms.
 
 
