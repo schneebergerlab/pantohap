@@ -1,0 +1,72 @@
+[build-system]
+requires = ["setuptools>=42"]
+build-backend = "setuptools.build_meta"
+
+
+[project]
+name = "pantohap"
+authors = [
+	{name = "Manish Goel"},
+	{name = "Craig Dent"}
+	{name = "Leon Rauschning"},
+]
+maintainers = [
+	{name = "Manish Goel"},
+	{name = "Craig Dent"}
+	{name = "Leon Rauschning"},
+]
+
+requires-python = ">=3.10"
+description=""
+
+readme = "README.md"
+license = {text = "MIT"}
+classifiers = [
+	# Trove classifiers
+	# (https://pypi.python.org/pypi?%3Aaction=list_classifiers)
+	"Development Status :: 1 - Planning",
+	"License :: OSI Approved :: MIT License",
+	"Programming Language :: Python",
+	"Programming Language :: Python :: 3.10",
+	"Topic :: Software Development :: Libraries",
+	"Topic :: Scientific/Engineering :: Bio-Informatics",
+	"Intended Audience :: Science/Research",
+]
+dynamic = ["version"]
+
+[project.urls]
+homepage = "https://github.com/schneebergerlab/pantohap"
+
+#[project.scripts]
+
+[tool.ruff]
+#fix = true
+show-fixes = true
+exclude = [
+	"tests",
+	".git",
+	".github",
+	"data",
+	"__pycache__",
+	"build",
+	"dist",
+	".vscode",
+]
+
+
+[tool.ruff.format]
+docstring-code-format = true
+quote-style = "double"
+
+[tool.ruff.lint]
+select = ["E", "F"]#, "B"]
+ignore = ["E501", "F403", "F405"] # ignore long lines and * imports
+
+[tool.setuptools]
+include-package-data = true # TODO decide if we want to include model weights in the package
+package-dir = {"" = "src"}
+
+[tool.setuptools.dynamic]
+version = {attr = "pantohap.__version__"}
+dependencies = {file = ["requirements.txt"]}
+

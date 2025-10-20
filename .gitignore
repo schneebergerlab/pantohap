@@ -3,6 +3,14 @@
 
 **/*.log.*
 
+dist
+.eggs
+*.egg-info
+wheels/
+eggs/
+.ruff_cache/
+__pycache__/
+
 nfpipe/.nextflow
 nfpipe/results
 nfpipe/data
