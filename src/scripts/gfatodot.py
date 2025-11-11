@@ -14,7 +14,7 @@ from typing import List
 def log(s: str):
     print(s, file=sys.stderr)
 
-def gfa_to_dot(gfa, ):
+def gfa_to_dot(gfa, include_len=False, skip_missing=True):
     # Initialize DOT format
     dot_lines = ["digraph GFA_graph {"]
     dot_lines.append("  rankdir=LR;")
@@ -27,6 +27,12 @@ def gfa_to_dot(gfa, ):
     
     # Add edges as connections
     for edge in gfa.edges:
+        # seems that gfapy autocompletes these, not sure if possible to disable
+        ## ignore lines outside the file
+        ## for plotting an incomplete subset of a gfa
+        #if skip_missing and not (edge.from_segment in gfa.segments and edge.to_segment in gfa.segments):
+        #    continue
+
         dot_lines.append(f'  {edge.from_segment.name} -> {edge.to_segment.name};')
     
     dot_lines.append("}")
