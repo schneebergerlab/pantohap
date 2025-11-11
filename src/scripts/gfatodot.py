@@ -39,7 +39,7 @@ def gfa_to_dot(gfa, ):
 if __name__ == "__main__":
     # read in GFA, either from 1st arg or stdin
     try:
-        gfa = Gfa.from_file(sys.argv[1] if len(sys.argv) > 1 else sys.stdin.read(), vlevel=0)
+        gfa = Gfa.from_file(sys.argv[1] if (len(sys.argv) > 1 and not sys.argv[1]=='-') else sys.stdin.read(), vlevel=0)
         log(f"Loaded GFA with {len(gfa.segments)} segments and {len(gfa.edges)} edges")
     except Exception as e:
         log(f"Error loading GFA file: {e}")
@@ -48,7 +48,7 @@ if __name__ == "__main__":
     dot = gfa_to_dot(gfa)
 
     # emit dot
-    if len(sys.argv) > 2:
+    if len(sys.argv) > 2 and not sys.argv[2]=='-':
         print(dot, file=sys.argv[2])
     else:
         print(dot)
